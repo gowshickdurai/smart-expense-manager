@@ -1,3 +1,6 @@
+// Define your backend API URL here
+const API_URL = "http://localhost:5000/api";
+
 // ===============================
 // LOGIN FORM
 // ===============================
@@ -84,13 +87,47 @@ if (expenseModal) {
 const expenseForm = document.getElementById("expenseForm");
 
 if (expenseForm) {
-    expenseForm.addEventListener("submit", function (event) {
+    // Note the "async" keyword added here to support await fetch()
+    expenseForm.addEventListener("submit", async function (event) {
         event.preventDefault();
 
-        alert("Expense added successfully!");
+        // Getting values from the form
+        const amount = expenseForm.querySelector('input[type="number"]').value;
+        const category = expenseForm.querySelectorAll("select")[0].value; // First select is usually category
+        const description = expenseForm.querySelector('input[type="text"]').value;
+        const paymentMethod = expenseForm.querySelectorAll("select")[1].value; // Second select is payment method
+        const date = expenseForm.querySelector('input[type="date"]').value;
 
-        expenseForm.reset();
-        closeExpenseModal();
+        try {
+            const response = await fetch(`${API_URL}/expenses`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    amount: amount,
+                    category: category,
+                    description: description,
+                    paymentMethod: paymentMethod,
+                    date: date
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                alert("Expense added successfully!");
+                expenseForm.reset();
+                closeExpenseModal();
+                loadExpenses(); // Refresh the expenses list from the backend
+            } else {
+                alert(result.message);
+            }
+
+        } catch (error) {
+            console.error(error);
+            alert("Unable to connect to the backend.");
+        }
     });
 }
 
@@ -210,3 +247,61 @@ document.addEventListener("DOMContentLoaded", function() {
         overview.style.display = "block";
     }
 });
+
+// ==============================
+// LOAD EXPENSES
+// ==============================
+
+async function loadExpenses() {
+    try {
+        const response = await fetch(`${API_URL}/expenses`);
+        const data = await response.json();
+        console.log("Expenses:", data);
+    } catch (error) {
+        console.error("Unable to connect to backend:", error);
+    }
+}
+
+// ==============================
+// LOAD INCOME
+// ==============================
+
+async function loadIncome() {
+    try {
+        const response = await fetch(`${API_URL}/income`);
+        const data = await response.json();
+
+        console.log("Income:", data);
+
+    } catch (error) {
+        console.error("Unable to connect to backend:", error);
+    }
+}
+
+// ==============================
+// LOAD BUDGET
+// ==============================
+
+async function loadBudget() {
+    try {
+        const response = await fetch(`${API_URL}/budgets`);
+        const data = await response.json();
+
+        console.log("Budget:", data);
+
+    } catch (error) {
+        console.error("Unable to connect to backend:", error);
+    }
+}
+
+// ==============================
+// LOAD DASHBOARD DATA
+// ==============================
+
+async function loadDashboardData() {
+    await loadExpenses();
+    await loadIncome();
+    await loadBudget();
+}
+
+document.addEventListener("DOMContentLoaded", loadDashboardData);
