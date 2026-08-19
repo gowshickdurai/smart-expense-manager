@@ -2,20 +2,41 @@ const express = require("express");
 
 const router = express.Router();
 
-const data = require("../data/data");
+const {
+    getDatabase
+} = require("../database/database");
 
 
 // ==============================
 // GET ALL EXPENSES
 // ==============================
 
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
 
-    res.json({
-        success: true,
-        count: data.expenses.length,
-        expenses: data.expenses
-    });
+    try {
+
+        const db = getDatabase();
+
+        const expenses = await db.all(
+            "SELECT * FROM expenses ORDER BY date DESC"
+        );
+
+        res.json({
+            success: true,
+            count: expenses.length,
+            expenses: expenses
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        res.status(500).json({
+            success: false,
+            message: "Unable to get expenses"
+        });
+
+    }
 
 });
 
@@ -24,29 +45,41 @@ router.get("/", (req, res) => {
 // GET ONE EXPENSE
 // ==============================
 
-router.get("/:id", (req, res) => {
+router.get("/:id", async (req, res) => {
 
-    const id = Number(req.params.id);
+    try {
 
-    const expense = data.expenses.find(
-        item => item.id === id
-    );
+        const db = getDatabase();
 
+        const expense = await db.get(
+            "SELECT * FROM expenses WHERE id = ?",
+            req.params.id
+        );
 
-    if (!expense) {
+        if (!expense) {
 
-        return res.status(404).json({
+            return res.status(404).json({
+                success: false,
+                message: "Expense not found"
+            });
+
+        }
+
+        res.json({
+            success: true,
+            expense: expense
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        res.status(500).json({
             success: false,
-            message: "Expense not found"
+            message: "Unable to get expense"
         });
 
     }
-
-
-    res.json({
-        success: true,
-        expense: expense
-    });
 
 });
 
@@ -55,59 +88,94 @@ router.get("/:id", (req, res) => {
 // ADD EXPENSE
 // ==============================
 
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
 
-    const {
-        amount,
-        category,
-        description,
-        paymentMethod,
-        date
-    } = req.body;
+    try {
+
+        const {
+            amount,
+            category,
+            description,
+            paymentMethod,
+            date
+        } = req.body;
 
 
-    if (!amount || !category || !description || !date) {
+        if (
+            !amount ||
+            !category ||
+            !description ||
+            !date
+        ) {
 
-        return res.status(400).json({
+            return res.status(400).json({
+
+                success: false,
+
+                message:
+                    "Amount, category, description and date are required"
+
+            });
+
+        }
+
+
+        const db = getDatabase();
+
+
+        const result = await db.run(
+            `
+            INSERT INTO expenses
+            (
+                amount,
+                category,
+                description,
+                paymentMethod,
+                date
+            )
+            VALUES (?, ?, ?, ?, ?)
+            `,
+            [
+                amount,
+                category,
+                description,
+                paymentMethod || "UPI",
+                date
+            ]
+        );
+
+
+        const newExpense = await db.get(
+            "SELECT * FROM expenses WHERE id = ?",
+            result.lastID
+        );
+
+
+        res.status(201).json({
+
+            success: true,
+
+            message:
+                "Expense added successfully",
+
+            expense: newExpense
+
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        res.status(500).json({
+
             success: false,
-            message: "Please provide all required fields"
+
+            message:
+                "Unable to add expense"
+
         });
 
     }
-
-
-    const newExpense = {
-
-        id:
-            data.expenses.length > 0
-                ? data.expenses[data.expenses.length - 1].id + 1
-                : 1,
-
-        amount: Number(amount),
-
-        category,
-
-        description,
-
-        paymentMethod: paymentMethod || "UPI",
-
-        date
-
-    };
-
-
-    data.expenses.push(newExpense);
-
-
-    res.status(201).json({
-
-        success: true,
-
-        message: "Expense added successfully",
-
-        expense: newExpense
-
-    });
 
 });
 

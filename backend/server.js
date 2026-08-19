@@ -5,6 +5,10 @@ const expenseRoutes = require("./routes/expenseRoutes");
 const incomeRoutes = require("./routes/incomeRoutes");
 const budgetRoutes = require("./routes/budgetRoutes");
 
+const {
+    initializeDatabase
+} = require("./database/database");
+
 const app = express();
 
 const PORT = 5000;
@@ -47,10 +51,29 @@ app.use("/api/budgets", budgetRoutes);
 // START SERVER
 // ==============================
 
-app.listen(PORT, () => {
+async function startServer() {
 
-    console.log(
-        `SmartExpense server running at http://localhost:${PORT}`
-    );
+    try {
 
-});
+        await initializeDatabase();
+
+        app.listen(PORT, () => {
+
+            console.log(
+                `SmartExpense server running at http://localhost:${PORT}`
+            );
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Unable to start server:",
+            error
+        );
+
+    }
+
+}
+
+startServer();
