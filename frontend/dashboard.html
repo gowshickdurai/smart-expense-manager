@@ -83,7 +83,7 @@
                     <span>Total Income</span>
                     <div class="card-icon income-icon">↗</div>
                 </div>
-                <h2>₹30,000</h2>
+                <h2 id="totalIncome">₹0</h2>
                 <p class="positive">
                     +8.2% from last month
                 </p>
@@ -94,7 +94,7 @@
                     <span>Total Expenses</span>
                     <div class="card-icon expense-icon">↘</div>
                 </div>
-                <h2>₹18,500</h2>
+                <h2 id="totalExpenses">₹0</h2>
                 <p class="negative">
                     +4.5% from last month
                 </p>
@@ -105,7 +105,7 @@
                     <span>Balance</span>
                     <div class="card-icon balance-icon">₹</div>
                 </div>
-                <h2>₹11,500</h2>
+                <h2 id="totalBalance">₹0</h2>
                 <p class="positive">
                     Available balance
                 </p>
@@ -116,9 +116,9 @@
                     <span>Budget Left</span>
                     <div class="card-icon budget-icon">🎯</div>
                 </div>
-                <h2>₹6,500</h2>
+                <h2 id="totalBudget">₹0</h2>
                 <p>
-                    74% used
+                    <span id="topBudgetPercentage">0% used</span>
                 </p>
             </div>
         </div>
@@ -138,58 +138,8 @@
                     </a>
                 </div>
 
-                <div class="transaction-list">
-                    <div class="transaction">
-                        <div class="transaction-icon">
-                            🍔
-                        </div>
-                        <div class="transaction-info">
-                            <strong>Lunch</strong>
-                            <small>Food • Today</small>
-                        </div>
-                        <strong class="amount expense">
-                            -₹250
-                        </strong>
-                    </div>
-
-                    <div class="transaction">
-                        <div class="transaction-icon">
-                            🚌
-                        </div>
-                        <div class="transaction-info">
-                            <strong>Bus Travel</strong>
-                            <small>Travel • Yesterday</small>
-                        </div>
-                        <strong class="amount expense">
-                            -₹120
-                        </strong>
-                    </div>
-
-                    <div class="transaction">
-                        <div class="transaction-icon">
-                            🛍️
-                        </div>
-                        <div class="transaction-info">
-                            <strong>Shopping</strong>
-                            <small>Shopping • Aug 6</small>
-                        </div>
-                        <strong class="amount expense">
-                            -₹1,200
-                        </strong>
-                    </div>
-
-                    <div class="transaction">
-                        <div class="transaction-icon">
-                            💰
-                        </div>
-                        <div class="transaction-info">
-                            <strong>Salary</strong>
-                            <small>Income • Aug 5</small>
-                        </div>
-                        <strong class="amount income">
-                            +₹30,000
-                        </strong>
-                    </div>
+                <div class="transaction-list" id="recentTransactions">
+                    <!-- Transactions will be loaded from database -->
                 </div>
             </div>
 
@@ -200,21 +150,32 @@
                         <h3>Monthly Budget</h3>
                         <p>August 2026</p>
                     </div>
-                    <span>₹25,000</span>
+                    <span id="monthlyBudgetTotal">
+                        ₹0
+                    </span>
                 </div>
 
                 <div class="budget-number">
-                    <strong>₹18,500</strong>
+                    <strong id="budgetSpent">
+                        ₹0
+                    </strong>
                     <span>spent</span>
                 </div>
 
                 <div class="large-progress">
-                    <div style="width:74%"></div>
+                    <div
+                        id="budgetProgress"
+                        style="width:0%">
+                    </div>
                 </div>
 
                 <div class="budget-footer">
-                    <span>₹6,500 remaining</span>
-                    <span>74%</span>
+                    <span id="budgetRemaining">
+                        ₹0 remaining
+                    </span>
+                    <span id="budgetPercentage">
+                        0%
+                    </span>
                 </div>
             </div>
         </div>
@@ -322,35 +283,7 @@
                             <th>Amount</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <tr>
-                            <td>08 Aug</td>
-                            <td>Lunch</td>
-                            <td>Food</td>
-                            <td>UPI</td>
-                            <td class="expense">-₹250</td>
-                        </tr>
-                        <tr>
-                            <td>07 Aug</td>
-                            <td>Bus Travel</td>
-                            <td>Travel</td>
-                            <td>Cash</td>
-                            <td class="expense">-₹120</td>
-                        </tr>
-                        <tr>
-                            <td>06 Aug</td>
-                            <td>Shopping</td>
-                            <td>Shopping</td>
-                            <td>Card</td>
-                            <td class="expense">-₹1,200</td>
-                        </tr>
-                        <tr>
-                            <td>05 Aug</td>
-                            <td>Salary</td>
-                            <td>Income</td>
-                            <td>Bank</td>
-                            <td class="income">+₹30,000</td>
-                        </tr>
+                    <tbody id="transactionTableBody">
                     </tbody>
                 </table>
             </div>
@@ -359,60 +292,151 @@
 
     <!-- Budget -->
     <section id="budget" class="dashboard-section">
+        
+        <!-- ============================== -->
+        <!-- BUDGET SECTION -->
+        <!-- ============================== -->
         <div class="dashboard-title">
             <div>
                 <h2>Budget</h2>
-                <p>Control your monthly spending.</p>
+                <p>Set and manage your monthly budget.</p>
             </div>
-            <button class="btn">
-                + Set Budget
+
+            <button class="btn" onclick="openBudgetModal()">
+                + Add Budget
             </button>
         </div>
+        
+        <!-- ============================== -->
+        <!-- BUDGET LIST -->
+        <!-- ============================== -->
+        <div id="budgetList" class="budget-list">
+            <div class="no-budget">
+                No budgets added yet.
+            </div>
+        </div>
+        
+        <!-- ============================== -->
+        <!-- ADD BUDGET MODAL -->
+        <!-- ============================== -->
+        <div
+            id="budgetModal"
+            class="modal">
 
-        <div class="summary-grid">
-            <div class="summary-card">
-                <span>Total Budget</span>
-                <h2>₹25,000</h2>
-            </div>
-            <div class="summary-card">
-                <span>Spent</span>
-                <h2>₹18,500</h2>
-            </div>
-            <div class="summary-card">
-                <span>Remaining</span>
-                <h2>₹6,500</h2>
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h2 id="budgetModalTitle">Add Monthly Budget</h2>
+                    <button
+                        type="button"
+                        onclick="closeBudgetModal()">
+                        ×
+                    </button>
+                </div>
+
+                <form id="budgetForm">
+
+                    <!-- MONTH -->
+                    <div class="form-group">
+                        <label for="budgetMonth">
+                            Month
+                        </label>
+                        <select
+                            id="budgetMonth"
+                            required>
+                            <option value="">
+                                Select month
+                            </option>
+                            <option value="01">January</option>
+                            <option value="02">February</option>
+                            <option value="03">March</option>
+                            <option value="04">April</option>
+                            <option value="05">May</option>
+                            <option value="06">June</option>
+                            <option value="07">July</option>
+                            <option value="08">August</option>
+                            <option value="09">September</option>
+                            <option value="10">October</option>
+                            <option value="11">November</option>
+                            <option value="12">December</option>
+                        </select>
+                    </div>
+
+                    <!-- YEAR -->
+                    <div class="form-group">
+                        <label for="budgetYear">
+                            Year
+                        </label>
+                        <input
+                            type="number"
+                            id="budgetYear"
+                            min="2020"
+                            max="2100"
+                            value="2026"
+                            required>
+                    </div>
+
+                    <!-- AMOUNT -->
+                    <div class="form-group">
+                        <label for="budgetAmount">
+                            Budget Amount
+                        </label>
+                        <input
+                            type="number"
+                            id="budgetAmount"
+                            min="1"
+                            step="0.01"
+                            placeholder="Enter budget amount"
+                            required>
+                    </div>
+
+                    <!-- BUTTONS -->
+                    <div class="form-actions">
+                        <button
+                            type="button"
+                            onclick="closeBudgetModal()">
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            id="budgetSubmitBtn">
+                            Add Budget
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
 
-        <div class="dashboard-card">
-            <h3>Category Budgets</h3>
-            <div class="budget-category">
-                <div>
-                    <strong>🍔 Food</strong>
-                    <span>₹4,000 / ₹5,000</span>
+        <!-- Budget Summary -->
+        <div id="budgetSummaryContainer" style="display: none;">
+            <div class="dashboard-card">
+                <div class="card-heading">
+                    <div>
+                        <h3>Budget Summary</h3>
+                    </div>
                 </div>
-                <div class="large-progress">
-                    <div style="width:80%"></div>
-                </div>
-            </div>
 
-            <div class="budget-category">
-                <div>
-                    <strong>🚗 Travel</strong>
-                    <span>₹2,000 / ₹3,000</span>
+                <div class="summary-grid" style="margin-bottom: 20px;">
+                    <div class="summary-card">
+                        <span>Total Budget</span>
+                        <h2 id="pageTotalBudget">₹0</h2>
+                    </div>
+                    <div class="summary-card">
+                        <span>Spent</span>
+                        <h2 id="pageBudgetSpent">₹0</h2>
+                    </div>
+                    <div class="summary-card">
+                        <span>Remaining</span>
+                        <h2 id="pageBudgetRemaining">₹0</h2>
+                    </div>
                 </div>
-                <div class="large-progress">
-                    <div style="width:67%"></div>
-                </div>
-            </div>
 
-            <div class="budget-category">
-                <div>
-                    <strong>🛍️ Shopping</strong>
-                    <span>₹4,500 / ₹5,000</span>
-                </div>
                 <div class="large-progress">
-                    <div style="width:90%"></div>
+                    <div id="pageBudgetProgress" style="width:0%"></div>
+                </div>
+                
+                <div class="budget-footer" style="margin-top: 10px; justify-content: flex-end;">
+                    <span id="pageBudgetPercentage">0%</span>
                 </div>
             </div>
         </div>

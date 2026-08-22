@@ -975,6 +975,157 @@ th {
 }
 
 
+/* ============================== */
+/* BUDGET PAGE */
+/* ============================== */
+
+.budget-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.budget-page-header h1 {
+    margin: 0;
+}
+
+.budget-page-header p {
+    margin-top: 5px;
+    color: #777;
+}
+
+
+/* ============================== */
+/* BUDGET LIST */
+/* ============================== */
+
+.budget-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.budget-item {
+    background: white;
+    border: 1px solid #e5e5e5;
+    border-radius: 15px;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.budget-info h3 {
+    margin: 0 0 5px 0;
+}
+
+.budget-info p {
+    margin: 0;
+    color: #777;
+}
+
+.budget-amount {
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.no-budget {
+    padding: 40px;
+    text-align: center;
+    color: #777;
+    background: white;
+    border-radius: 15px;
+}
+
+
+/* ============================== */
+/* BUDGET MODAL */
+/* ============================== */
+
+#budgetModal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+#budgetModal.show {
+    display: flex;
+}
+
+#budgetModal .modal-content {
+    width: 90%;
+    max-width: 500px;
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+}
+
+#budgetModal .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+#budgetModal .modal-header h2 {
+    margin: 0;
+}
+
+#budgetModal .modal-header button {
+    border: none;
+    background: none;
+    font-size: 28px;
+    cursor: pointer;
+    width: auto;
+    height: auto;
+    border-radius: 0;
+}
+
+.form-group {
+    margin-bottom: 18px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 7px;
+    font-weight: 600;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 15px;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.form-actions button {
+    padding: 11px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+}
+
+.form-actions button[type="submit"] {
+    background: #635bff;
+    color: white;
+}
+
+
 /* =========================
    MOBILE
 ========================= */
