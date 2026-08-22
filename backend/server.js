@@ -4,6 +4,7 @@ const cors = require("cors");
 const expenseRoutes = require("./routes/expenseRoutes");
 const incomeRoutes = require("./routes/incomeRoutes");
 const budgetRoutes = require("./routes/budgetRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
 
 const {
     initializeDatabase
@@ -45,6 +46,8 @@ app.use("/api/expenses", expenseRoutes);
 app.use("/api/income", incomeRoutes);
 
 app.use("/api/budgets", budgetRoutes);
+
+app.use("/api/dashboard", dashboardRoutes);
 
 
 // ==============================

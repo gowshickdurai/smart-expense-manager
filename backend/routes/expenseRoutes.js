@@ -18,13 +18,17 @@ router.get("/", async (req, res) => {
         const db = getDatabase();
 
         const expenses = await db.all(
-            "SELECT * FROM expenses ORDER BY date DESC"
+            "SELECT * FROM expenses ORDER BY date DESC, id DESC"
         );
 
         res.json({
+
             success: true,
+
             count: expenses.length,
+
             expenses: expenses
+
         });
 
     } catch (error) {
@@ -32,8 +36,11 @@ router.get("/", async (req, res) => {
         console.error(error);
 
         res.status(500).json({
+
             success: false,
+
             message: "Unable to get expenses"
+
         });
 
     }
@@ -59,15 +66,21 @@ router.get("/:id", async (req, res) => {
         if (!expense) {
 
             return res.status(404).json({
+
                 success: false,
+
                 message: "Expense not found"
+
             });
 
         }
 
         res.json({
+
             success: true,
+
             expense: expense
+
         });
 
     } catch (error) {
@@ -75,8 +88,11 @@ router.get("/:id", async (req, res) => {
         console.error(error);
 
         res.status(500).json({
+
             success: false,
+
             message: "Unable to get expense"
+
         });
 
     }
@@ -102,7 +118,7 @@ router.post("/", async (req, res) => {
 
 
         if (
-            !amount ||
+            amount === undefined ||
             !category ||
             !description ||
             !date
@@ -139,7 +155,7 @@ router.post("/", async (req, res) => {
                 amount,
                 category,
                 description,
-                paymentMethod || "UPI",
+                paymentMethod || null,
                 date
             ]
         );
@@ -155,8 +171,7 @@ router.post("/", async (req, res) => {
 
             success: true,
 
-            message:
-                "Expense added successfully",
+            message: "Expense added successfully",
 
             expense: newExpense
 
@@ -170,8 +185,186 @@ router.post("/", async (req, res) => {
 
             success: false,
 
-            message:
-                "Unable to add expense"
+            message: "Unable to add expense"
+
+        });
+
+    }
+
+});
+
+
+// ==============================
+// UPDATE EXPENSE
+// ==============================
+
+router.put("/:id", async (req, res) => {
+
+    try {
+
+        const {
+            amount,
+            category,
+            description,
+            paymentMethod,
+            date
+        } = req.body;
+
+        const id = req.params.id;
+
+        const db = getDatabase();
+
+
+        const existingExpense = await db.get(
+            "SELECT * FROM expenses WHERE id = ?",
+            id
+        );
+
+
+        if (!existingExpense) {
+
+            return res.status(404).json({
+
+                success: false,
+
+                message: "Expense not found"
+
+            });
+
+        }
+
+
+        if (
+            amount === undefined ||
+            !category ||
+            !description ||
+            !date
+        ) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                message:
+                    "Amount, category, description and date are required"
+
+            });
+
+        }
+
+
+        await db.run(
+            `
+            UPDATE expenses
+
+            SET
+                amount = ?,
+                category = ?,
+                description = ?,
+                paymentMethod = ?,
+                date = ?
+
+            WHERE id = ?
+            `,
+            [
+                amount,
+                category,
+                description,
+                paymentMethod || null,
+                date,
+                id
+            ]
+        );
+
+
+        const updatedExpense = await db.get(
+            "SELECT * FROM expenses WHERE id = ?",
+            id
+        );
+
+
+        res.json({
+
+            success: true,
+
+            message: "Expense updated successfully",
+
+            expense: updatedExpense
+
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        res.status(500).json({
+
+            success: false,
+
+            message: "Unable to update expense"
+
+        });
+
+    }
+
+});
+
+
+// ==============================
+// DELETE EXPENSE
+// ==============================
+
+router.delete("/:id", async (req, res) => {
+
+    try {
+
+        const id = req.params.id;
+
+        const db = getDatabase();
+
+
+        const existingExpense = await db.get(
+            "SELECT * FROM expenses WHERE id = ?",
+            id
+        );
+
+
+        if (!existingExpense) {
+
+            return res.status(404).json({
+
+                success: false,
+
+                message: "Expense not found"
+
+            });
+
+        }
+
+
+        await db.run(
+            "DELETE FROM expenses WHERE id = ?",
+            id
+        );
+
+
+        res.json({
+
+            success: true,
+
+            message: "Expense deleted successfully"
+
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        res.status(500).json({
+
+            success: false,
+
+            message: "Unable to delete expense"
 
         });
 
