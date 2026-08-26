@@ -53,11 +53,58 @@ if (registerForm) {
 // EXPENSE MODAL
 // ===============================
 
+let currentEditExpenseId = null;
+
 function openExpenseModal() {
     const modal = document.getElementById("expenseModal");
+    const title = document.getElementById("expenseModalTitle");
+    const btn = document.getElementById("expenseSubmitBtn");
+    const form = document.getElementById("expenseForm");
+
+    currentEditExpenseId = null;
+    if (form) form.reset();
+    if (title) title.textContent = "Add Expense";
+    if (btn) btn.textContent = "Add Expense";
 
     if (modal) {
         modal.classList.add("show");
+    }
+}
+
+function editExpense(id, amount, category, description, paymentMethod, date) {
+    currentEditExpenseId = id;
+    const modal = document.getElementById("expenseModal");
+    const title = document.getElementById("expenseModalTitle");
+    const btn = document.getElementById("expenseSubmitBtn");
+
+    document.getElementById("expenseAmount").value = amount;
+    document.getElementById("expenseCategory").value = category;
+    document.getElementById("expenseDescription").value = description;
+    document.getElementById("expensePaymentMethod").value = paymentMethod;
+    document.getElementById("expenseDate").value = date;
+
+    if (title) title.textContent = "Update Expense";
+    if (btn) btn.textContent = "Update Expense";
+
+    if (modal) {
+        modal.classList.add("show");
+    }
+}
+
+async function deleteExpense(id) {
+    if (!confirm("Are you sure you want to delete this expense?")) return;
+    try {
+        const response = await fetch(`${API_URL}/expenses/${id}`, { method: "DELETE" });
+        const result = await response.json();
+        if (result.success) {
+            alert("Expense deleted successfully");
+            loadDashboardData();
+        } else {
+            alert(result.message);
+        }
+    } catch (error) {
+        console.error(error);
+        alert("Unable to connect to the backend.");
     }
 }
 
@@ -87,20 +134,26 @@ if (expenseModal) {
 const expenseForm = document.getElementById("expenseForm");
 
 if (expenseForm) {
-    // Note the "async" keyword added here to support await fetch()
     expenseForm.addEventListener("submit", async function (event) {
         event.preventDefault();
 
-        // Getting values from the form
-        const amount = expenseForm.querySelector('input[type="number"]').value;
-        const category = expenseForm.querySelectorAll("select")[0].value; // First select is usually category
-        const description = expenseForm.querySelector('input[type="text"]').value;
-        const paymentMethod = expenseForm.querySelectorAll("select")[1].value; // Second select is payment method
-        const date = expenseForm.querySelector('input[type="date"]').value;
+        const amount = document.getElementById("expenseAmount").value;
+        const category = document.getElementById("expenseCategory").value;
+        const description = document.getElementById("expenseDescription").value;
+        const paymentMethod = document.getElementById("expensePaymentMethod").value;
+        const date = document.getElementById("expenseDate").value;
+
+        if (!amount || amount <= 0 || !category || !description || !date) {
+            alert("Please provide valid expense details.");
+            return;
+        }
 
         try {
-            const response = await fetch(`${API_URL}/expenses`, {
-                method: "POST",
+            const url = currentEditExpenseId ? `${API_URL}/expenses/${currentEditExpenseId}` : `${API_URL}/expenses`;
+            const method = currentEditExpenseId ? "PUT" : "POST";
+
+            const response = await fetch(url, {
+                method: method,
                 headers: {
                     "Content-Type": "application/json"
                 },
@@ -116,13 +169,10 @@ if (expenseForm) {
             const result = await response.json();
 
             if (result.success) {
-                alert("Expense added successfully!");
+                alert(currentEditExpenseId ? "Expense updated successfully!" : "Expense added successfully!");
                 expenseForm.reset();
                 closeExpenseModal();
-                loadExpenses();
-                loadRecentTransactions();
-                loadDashboardSummary();
-                loadBudget();
+                loadDashboardData();
             } else {
                 alert(result.message);
             }
@@ -193,7 +243,7 @@ window.addEventListener("DOMContentLoaded", function () {
 function showSection(sectionId, clickedItem) {
     // Get all dashboard sections
     const sections = document.querySelectorAll(
-        "#overview, #transactions, #budget, #reports, #profile"
+        "#overview, #transactions, #income, #budget, #reports, #profile"
     );
 
     // Hide all sections
@@ -237,7 +287,7 @@ function showSection(sectionId, clickedItem) {
 
 document.addEventListener("DOMContentLoaded", function() {
     const sections = document.querySelectorAll(
-        "#overview, #transactions, #budget, #reports, #profile"
+        "#overview, #transactions, #income, #budget, #reports, #profile"
     );
 
     sections.forEach(function(section) {
@@ -255,6 +305,8 @@ document.addEventListener("DOMContentLoaded", function() {
 // LOAD EXPENSES
 // ==============================
 
+let allExpenses = [];
+
 async function loadExpenses() {
     try {
         const response = await fetch(`${API_URL}/expenses`);
@@ -265,53 +317,252 @@ async function loadExpenses() {
             return;
         }
         
-        const tableBody = document.getElementById("transactionTableBody");
-        if (!tableBody) return;
-        
-        tableBody.innerHTML = "";
-        
-        if (!data.expenses || data.expenses.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center;">No transactions found</td></tr>`;
-            return;
-        }
-        
-        data.expenses.forEach(expense => {
-            const tr = document.createElement("tr");
-            
-            // Format date correctly if it's like 2026-08-08
-            let displayDate = expense.date;
-            try {
-                const dateObj = new Date(expense.date);
-                const day = String(dateObj.getDate()).padStart(2, '0');
-                const month = dateObj.toLocaleString("en-US", { month: "short" });
-                displayDate = `${day} ${month}`;
-            } catch (e) {}
-
-            tr.innerHTML = `
-                <td>${displayDate}</td>
-                <td>${expense.description}</td>
-                <td>${expense.category}</td>
-                <td>${expense.paymentMethod || '-'}</td>
-                <td class="expense">-${formatCurrency(expense.amount)}</td>
-            `;
-            tableBody.appendChild(tr);
-        });
+        allExpenses = data.expenses || [];
+        renderExpenses();
         
     } catch (error) {
         console.error("Unable to connect to backend:", error);
     }
 }
 
+function renderExpenses() {
+    const tableBody = document.getElementById("transactionTableBody");
+    if (!tableBody) return;
+    
+    tableBody.innerHTML = "";
+    
+    const searchVal = document.getElementById("searchTransaction")?.value.toLowerCase() || "";
+    const categoryVal = document.getElementById("filterCategory")?.value || "All";
+    const paymentVal = document.getElementById("filterPayment")?.value || "All";
+    const sortVal = document.getElementById("sortTransactions")?.value || "newest";
+
+    let filtered = allExpenses.filter(expense => {
+        const matchSearch = expense.description.toLowerCase().includes(searchVal) || 
+                            expense.category.toLowerCase().includes(searchVal) || 
+                            (expense.paymentMethod && expense.paymentMethod.toLowerCase().includes(searchVal));
+        const matchCategory = categoryVal === "All" || expense.category === categoryVal;
+        const matchPayment = paymentVal === "All" || expense.paymentMethod === paymentVal;
+        return matchSearch && matchCategory && matchPayment;
+    });
+
+    if (sortVal === "newest") {
+        filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+    } else if (sortVal === "oldest") {
+        filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+    } else if (sortVal === "amount-high") {
+        filtered.sort((a, b) => b.amount - a.amount);
+    } else if (sortVal === "amount-low") {
+        filtered.sort((a, b) => a.amount - b.amount);
+    }
+    
+    if (filtered.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center;">No transactions found</td></tr>`;
+        return;
+    }
+    
+    filtered.forEach(expense => {
+        const tr = document.createElement("tr");
+        
+        // Format date correctly if it's like 2026-08-08
+        let displayDate = expense.date;
+        try {
+            const dateObj = new Date(expense.date);
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            const month = dateObj.toLocaleString("en-US", { month: "short" });
+            displayDate = `${day} ${month}`;
+        } catch (e) {}
+
+        const escapedDesc = expense.description.replace(/'/g, "\\'");
+        const escapedCategory = expense.category.replace(/'/g, "\\'");
+        const escapedPayment = (expense.paymentMethod || "").replace(/'/g, "\\'");
+
+        tr.innerHTML = `
+            <td>${displayDate}</td>
+            <td>${expense.description}</td>
+            <td>${expense.category}</td>
+            <td>${expense.paymentMethod || '-'}</td>
+            <td class="expense">-${formatCurrency(expense.amount)}</td>
+            <td>
+                <button class="secondary-btn" style="padding: 4px 8px; font-size: 12px; margin-right: 5px; border-radius: 5px;" onclick="editExpense(${expense.id}, ${expense.amount}, '${escapedCategory}', '${escapedDesc}', '${escapedPayment}', '${expense.date}')">Edit</button>
+                <button class="secondary-btn" style="padding: 4px 8px; font-size: 12px; border-radius: 5px; color: var(--red); border-color: var(--red);" onclick="deleteExpense(${expense.id})">Delete</button>
+            </td>
+        `;
+        tableBody.appendChild(tr);
+    });
+}
+
+function searchTransactions() {
+    renderExpenses();
+}
+
+function filterTransactions() {
+    renderExpenses();
+}
+
 // ==============================
 // LOAD INCOME
 // ==============================
+
+let currentEditIncomeId = null;
+
+function openIncomeModal() {
+    const modal = document.getElementById("incomeModal");
+    const title = document.getElementById("incomeModalTitle");
+    const btn = document.getElementById("incomeSubmitBtn");
+    const form = document.getElementById("incomeForm");
+
+    currentEditIncomeId = null;
+    if (form) form.reset();
+    if (title) title.textContent = "Add Income";
+    if (btn) btn.textContent = "Add Income";
+
+    if (modal) {
+        modal.classList.add("show");
+    }
+}
+
+function closeIncomeModal() {
+    const modal = document.getElementById("incomeModal");
+    if (modal) {
+        modal.classList.remove("show");
+    }
+}
+
+const incomeModalElement = document.getElementById("incomeModal");
+if (incomeModalElement) {
+    incomeModalElement.addEventListener("click", function (event) {
+        if (event.target === incomeModalElement) {
+            closeIncomeModal();
+        }
+    });
+}
+
+const incomeForm = document.getElementById("incomeForm");
+if (incomeForm) {
+    incomeForm.addEventListener("submit", async function (event) {
+        event.preventDefault();
+
+        const amount = document.getElementById("incomeAmount").value;
+        const source = document.getElementById("incomeSource").value;
+        const date = document.getElementById("incomeDate").value;
+
+        if (!amount || amount <= 0 || !source || !date) {
+            alert("Please provide valid income details.");
+            return;
+        }
+
+        try {
+            const url = currentEditIncomeId ? `${API_URL}/income/${currentEditIncomeId}` : `${API_URL}/income`;
+            const method = currentEditIncomeId ? "PUT" : "POST";
+
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    amount: amount,
+                    source: source,
+                    date: date
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                alert(currentEditIncomeId ? "Income updated successfully!" : "Income added successfully!");
+                incomeForm.reset();
+                closeIncomeModal();
+                loadDashboardData();
+            } else {
+                alert(result.message);
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Unable to connect to backend.");
+        }
+    });
+}
+
+function editIncome(id, amount, source, date) {
+    currentEditIncomeId = id;
+    const modal = document.getElementById("incomeModal");
+    const title = document.getElementById("incomeModalTitle");
+    const btn = document.getElementById("incomeSubmitBtn");
+
+    document.getElementById("incomeAmount").value = amount;
+    document.getElementById("incomeSource").value = source;
+    document.getElementById("incomeDate").value = date;
+
+    if (title) title.textContent = "Update Income";
+    if (btn) btn.textContent = "Update Income";
+
+    if (modal) {
+        modal.classList.add("show");
+    }
+}
+
+async function deleteIncome(id) {
+    if (!confirm("Are you sure you want to delete this income record?")) return;
+    try {
+        const response = await fetch(`${API_URL}/income/${id}`, { method: "DELETE" });
+        const result = await response.json();
+        if (result.success) {
+            alert("Income deleted successfully");
+            loadDashboardData();
+        } else {
+            alert(result.message || "Failed to delete income");
+        }
+    } catch (error) {
+        console.error("Delete error:", error);
+        alert("Unable to connect to the backend.");
+    }
+}
 
 async function loadIncome() {
     try {
         const response = await fetch(`${API_URL}/income`);
         const data = await response.json();
 
-        console.log("Income:", data);
+        if (!data.success) {
+            console.error("Unable to load income");
+            return;
+        }
+
+        const tableBody = document.getElementById("incomeTableBody");
+        if (!tableBody) return;
+
+        tableBody.innerHTML = "";
+
+        if (!data.income || data.income.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center;">No income records found</td></tr>`;
+            return;
+        }
+
+        data.income.forEach(income => {
+            const tr = document.createElement("tr");
+
+            let displayDate = income.date;
+            try {
+                const dateObj = new Date(income.date);
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const month = dateObj.toLocaleString("en-US", { month: "short" });
+                displayDate = `${day} ${month}`;
+            } catch (e) {}
+
+            const escapedSource = income.source.replace(/'/g, "\\'");
+
+            tr.innerHTML = `
+                <td>${displayDate}</td>
+                <td>${income.source}</td>
+                <td class="positive">+${formatCurrency(income.amount)}</td>
+                <td>
+                    <button class="secondary-btn" style="padding: 4px 8px; font-size: 12px; margin-right: 5px; border-radius: 5px;" onclick="editIncome(${income.id}, ${income.amount}, '${escapedSource}', '${income.date}')">Edit</button>
+                    <button class="secondary-btn" style="padding: 4px 8px; font-size: 12px; border-radius: 5px; color: var(--red); border-color: var(--red);" onclick="deleteIncome(${income.id})">Delete</button>
+                </td>
+            `;
+            tableBody.appendChild(tr);
+        });
 
     } catch (error) {
         console.error("Unable to connect to backend:", error);
@@ -677,6 +928,8 @@ async function loadDashboardData() {
     await loadBudget();
 
     await loadExpenses();
+
+    await loadIncome();
 
 }
 

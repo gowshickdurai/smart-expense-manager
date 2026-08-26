@@ -23,6 +23,9 @@
         <a href="#" onclick="return showSection('transactions', this)">
             💳 <span>Transactions</span>
         </a>
+        <a href="#" onclick="return showSection('income', this)">
+            💰 <span>Income</span>
+        </a>
         <a href="#" onclick="return showSection('budget', this)">
             🎯 <span>Budget</span>
         </a>
@@ -257,18 +260,29 @@
                     placeholder="🔍 Search transactions..."
                     onkeyup="searchTransactions()"
                 >
-                <select>
-                    <option>All Categories</option>
-                    <option>Food</option>
-                    <option>Travel</option>
-                    <option>Shopping</option>
-                    <option>Education</option>
-                    <option>Bills</option>
+                <select id="filterCategory" onchange="filterTransactions()">
+                    <option value="All">All Categories</option>
+                    <option value="Food">Food</option>
+                    <option value="Travel">Travel</option>
+                    <option value="Shopping">Shopping</option>
+                    <option value="Education">Education</option>
+                    <option value="Bills">Bills</option>
+                    <option value="Entertainment">Entertainment</option>
+                    <option value="Healthcare">Healthcare</option>
+                    <option value="Others">Others</option>
                 </select>
-                <select>
-                    <option>All Types</option>
-                    <option>Income</option>
-                    <option>Expense</option>
+                <select id="filterPayment" onchange="filterTransactions()">
+                    <option value="All">All Payment Methods</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Card">Card</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                </select>
+                <select id="sortTransactions" onchange="filterTransactions()">
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                    <option value="amount-high">Amount: High to Low</option>
+                    <option value="amount-low">Amount: Low to High</option>
                 </select>
             </div>
 
@@ -281,9 +295,40 @@
                             <th>Category</th>
                             <th>Payment</th>
                             <th>Amount</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="transactionTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Income -->
+    <section id="income" class="dashboard-section">
+        <div class="dashboard-title">
+            <div>
+                <h2>Income</h2>
+                <p>Manage your income records.</p>
+            </div>
+            <button class="btn" onclick="openIncomeModal()">
+                + Add Income
+            </button>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="table-container">
+                <table id="incomeTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Source</th>
+                            <th>Amount</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="incomeTableBody">
                     </tbody>
                 </table>
             </div>
@@ -503,13 +548,39 @@
 
 </main>
 
+<!-- Add Income Modal -->
+<div class="modal" id="incomeModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div>
+                <h2 id="incomeModalTitle">Add Income</h2>
+                <p id="incomeModalDescription">Record a new income.</p>
+            </div>
+            <button onclick="closeIncomeModal()">
+                ×
+            </button>
+        </div>
+        <form id="incomeForm">
+            <label>Amount</label>
+            <input type="number" id="incomeAmount" placeholder="₹ 0" required>
+            <label>Source</label>
+            <input type="text" id="incomeSource" placeholder="Example: Salary" required>
+            <label>Date</label>
+            <input type="date" id="incomeDate" required>
+            <button type="submit" class="btn full-btn" id="incomeSubmitBtn">
+                Add Income
+            </button>
+        </form>
+    </div>
+</div>
+
 <!-- Add Expense Modal -->
 <div class="modal" id="expenseModal">
     <div class="modal-content">
         <div class="modal-header">
             <div>
-                <h2>Add Expense</h2>
-                <p>Record a new expense.</p>
+                <h2 id="expenseModalTitle">Add Expense</h2>
+                <p id="expenseModalDescription">Record a new expense.</p>
             </div>
             <button onclick="closeExpenseModal()">
                 ×
@@ -518,10 +589,10 @@
 
         <form id="expenseForm">
             <label>Amount</label>
-            <input type="number" placeholder="₹ 0" required>
+            <input type="number" id="expenseAmount" placeholder="₹ 0" required>
 
             <label>Category</label>
-            <select required>
+            <select id="expenseCategory" required>
                 <option value="">Select category</option>
                 <option>Food</option>
                 <option>Travel</option>
@@ -534,10 +605,10 @@
             </select>
 
             <label>Description</label>
-            <input type="text" placeholder="Example: Lunch" required>
+            <input type="text" id="expenseDescription" placeholder="Example: Lunch" required>
 
             <label>Payment Method</label>
-            <select>
+            <select id="expensePaymentMethod">
                 <option>UPI</option>
                 <option>Cash</option>
                 <option>Card</option>
@@ -545,9 +616,9 @@
             </select>
 
             <label>Date</label>
-            <input type="date" required>
+            <input type="date" id="expenseDate" required>
 
-            <button type="submit" class="btn full-btn">
+            <button type="submit" class="btn full-btn" id="expenseSubmitBtn">
                 Add Expense
             </button>
         </form>
