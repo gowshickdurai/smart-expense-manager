@@ -6,6 +6,11 @@ const {
     getDatabase
 } = require("../database/database");
 
+const authMiddleware = require("../middleware/authMiddleware");
+
+// Apply auth middleware to all budget routes
+router.use(authMiddleware);
+
 
 // ==============================
 // GET ALL BUDGETS
@@ -18,7 +23,8 @@ router.get("/", async (req, res) => {
         const db = getDatabase();
 
         const budgets = await db.all(
-            "SELECT * FROM budgets ORDER BY year DESC, id DESC"
+            "SELECT * FROM budgets WHERE user_id = ? ORDER BY year DESC, id DESC",
+            [req.userId]
         );
 
         res.json({
@@ -52,8 +58,8 @@ router.get("/:id", async (req, res) => {
         const db = getDatabase();
 
         const budget = await db.get(
-            "SELECT * FROM budgets WHERE id = ?",
-            req.params.id
+            "SELECT * FROM budgets WHERE id = ? AND user_id = ?",
+            [req.params.id, req.userId]
         );
 
         if (!budget) {
@@ -123,13 +129,15 @@ router.post("/", async (req, res) => {
             `
             INSERT INTO budgets
             (
+                user_id,
                 month,
                 year,
                 amount
             )
-            VALUES (?, ?, ?)
+            VALUES (?, ?, ?, ?)
             `,
             [
+                req.userId,
                 month,
                 year,
                 amount
@@ -195,8 +203,8 @@ router.put("/:id", async (req, res) => {
         // Check if budget exists
 
         const existingBudget = await db.get(
-            "SELECT * FROM budgets WHERE id = ?",
-            id
+            "SELECT * FROM budgets WHERE id = ? AND user_id = ?",
+            [id, req.userId]
         );
 
         if (!existingBudget) {
@@ -242,13 +250,14 @@ router.put("/:id", async (req, res) => {
                 year = ?,
                 amount = ?
 
-            WHERE id = ?
+            WHERE id = ? AND user_id = ?
             `,
             [
                 month,
                 year,
                 amount,
-                id
+                id,
+                req.userId
             ]
         );
 
@@ -299,8 +308,8 @@ router.delete("/:id", async (req, res) => {
         // Check if budget exists
 
         const existingBudget = await db.get(
-            "SELECT * FROM budgets WHERE id = ?",
-            id
+            "SELECT * FROM budgets WHERE id = ? AND user_id = ?",
+            [id, req.userId]
         );
 
         if (!existingBudget) {
@@ -318,8 +327,8 @@ router.delete("/:id", async (req, res) => {
         // Delete budget
 
         await db.run(
-            "DELETE FROM budgets WHERE id = ?",
-            id
+            "DELETE FROM budgets WHERE id = ? AND user_id = ?",
+            [id, req.userId]
         );
 
         res.json({

@@ -2,21 +2,84 @@
 const API_URL = "http://localhost:5000/api";
 
 // ===============================
+// AUTHENTICATION WRAPPER
+// ===============================
+async function fetchWithAuth(url, options = {}) {
+    const token = localStorage.getItem("smartExpenseToken");
+    
+    // Allow public API routes (login, register) without token redirection if they used this function accidentally,
+    // but typically they use normal fetch.
+    if (!token && !url.includes("/auth/")) {
+        const currentPath = window.location.pathname.toLowerCase();
+        if (!currentPath.endsWith("login.html") && !currentPath.endsWith("register.html")) {
+            window.location.href = "login.html";
+        }
+        return Promise.reject("No token found");
+    }
+
+    if (!options.headers) {
+        options.headers = {};
+    }
+    
+    if (token) {
+        options.headers["Authorization"] = "Bearer " + token;
+    }
+    
+    if (options.body && typeof options.body === 'string' && !options.headers["Content-Type"]) {
+        options.headers["Content-Type"] = "application/json";
+    }
+
+    const response = await fetch(url, options);
+    
+    if (response.status === 401) {
+        localStorage.removeItem("smartExpenseToken");
+        localStorage.removeItem("userEmail");
+        localStorage.removeItem("userName");
+        const currentPath = window.location.pathname.toLowerCase();
+        if (!currentPath.endsWith("login.html") && !currentPath.endsWith("register.html")) {
+            window.location.href = "login.html";
+        }
+        return Promise.reject("Unauthorized");
+    }
+    
+    return response;
+}
+
+// ===============================
 // LOGIN FORM
 // ===============================
 
 const loginForm = document.getElementById("loginForm");
 
 if (loginForm) {
-    loginForm.addEventListener("submit", function (event) {
+    loginForm.addEventListener("submit", async function (event) {
         event.preventDefault();
 
         const email = document.getElementById("loginEmail").value;
         const password = document.getElementById("loginPassword").value;
 
         if (email && password) {
-            alert("Demo login successful!");
-            window.location.href = "dashboard.html";
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    localStorage.setItem("smartExpenseToken", data.token);
+                    localStorage.setItem("userName", data.user.name);
+                    localStorage.setItem("userEmail", data.user.email);
+                    window.location.href = "dashboard.html";
+                } else {
+                    alert(data.message || "Login failed");
+                }
+            } catch (error) {
+                console.error("Login error", error);
+                alert("Failed to connect to the server");
+            }
         }
     });
 }
@@ -28,7 +91,7 @@ if (loginForm) {
 const registerForm = document.getElementById("registerForm");
 
 if (registerForm) {
-    registerForm.addEventListener("submit", function (event) {
+    registerForm.addEventListener("submit", async function (event) {
         event.preventDefault();
 
         const name = document.getElementById("registerName").value;
@@ -41,11 +104,25 @@ if (registerForm) {
             return;
         }
 
-        localStorage.setItem("userName", name);
-        localStorage.setItem("userEmail", email);
+        try {
+            const response = await fetch(`${API_URL}/auth/register`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, email, password })
+            });
 
-        alert("Account created successfully!");
-        window.location.href = "dashboard.html";
+            const data = await response.json();
+
+            if (data.success) {
+                alert("Account created successfully! Please login.");
+                window.location.href = "login.html";
+            } else {
+                alert(data.message || "Registration failed");
+            }
+        } catch (error) {
+            console.error("Registration error", error);
+            alert("Failed to connect to the server");
+        }
     });
 }
 
@@ -94,7 +171,7 @@ function editExpense(id, amount, category, description, paymentMethod, date) {
 async function deleteExpense(id) {
     if (!confirm("Are you sure you want to delete this expense?")) return;
     try {
-        const response = await fetch(`${API_URL}/expenses/${id}`, { method: "DELETE" });
+        const response = await fetchWithAuth(`${API_URL}/expenses/${id}`, { method: "DELETE" });
         const result = await response.json();
         if (result.success) {
             alert("Expense deleted successfully");
@@ -152,7 +229,7 @@ if (expenseForm) {
             const url = currentEditExpenseId ? `${API_URL}/expenses/${currentEditExpenseId}` : `${API_URL}/expenses`;
             const method = currentEditExpenseId ? "PUT" : "POST";
 
-            const response = await fetch(url, {
+            const response = await fetchWithAuth(url, {
                 method: method,
                 headers: {
                     "Content-Type": "application/json"
@@ -309,7 +386,7 @@ let allExpenses = [];
 
 async function loadExpenses() {
     try {
-        const response = await fetch(`${API_URL}/expenses`);
+        const response = await fetchWithAuth(`${API_URL}/expenses`);
         const data = await response.json();
         
         if (!data.success) {
@@ -455,7 +532,7 @@ if (incomeForm) {
             const url = currentEditIncomeId ? `${API_URL}/income/${currentEditIncomeId}` : `${API_URL}/income`;
             const method = currentEditIncomeId ? "PUT" : "POST";
 
-            const response = await fetch(url, {
+            const response = await fetchWithAuth(url, {
                 method: method,
                 headers: {
                     "Content-Type": "application/json"
@@ -505,7 +582,7 @@ function editIncome(id, amount, source, date) {
 async function deleteIncome(id) {
     if (!confirm("Are you sure you want to delete this income record?")) return;
     try {
-        const response = await fetch(`${API_URL}/income/${id}`, { method: "DELETE" });
+        const response = await fetchWithAuth(`${API_URL}/income/${id}`, { method: "DELETE" });
         const result = await response.json();
         if (result.success) {
             alert("Income deleted successfully");
@@ -521,7 +598,7 @@ async function deleteIncome(id) {
 
 async function loadIncome() {
     try {
-        const response = await fetch(`${API_URL}/income`);
+        const response = await fetchWithAuth(`${API_URL}/income`);
         const data = await response.json();
 
         if (!data.success) {
@@ -576,7 +653,7 @@ async function loadDashboardSummary() {
 
     try {
 
-        const response = await fetch(
+        const response = await fetchWithAuth(
             `${API_URL}/dashboard/summary`
         );
 
@@ -632,7 +709,7 @@ function formatCurrency(amount) {
 
 async function loadRecentTransactions() {
     try {
-        const response = await fetch(
+        const response = await fetchWithAuth(
             `${API_URL}/expenses`
         );
         const data = await response.json();
@@ -993,7 +1070,7 @@ async function deleteBudget(id) {
     }
 
     try {
-        const response = await fetch(`${API_URL}/budgets/${id}`, {
+        const response = await fetchWithAuth(`${API_URL}/budgets/${id}`, {
             method: "DELETE"
         });
         const result = await response.json();
@@ -1080,7 +1157,7 @@ if (budgetForm) {
                 
             const method = currentEditBudgetId ? "PUT" : "POST";
 
-            const response = await fetch(
+            const response = await fetchWithAuth(
                 url,
                 {
                     method: method,
@@ -1164,7 +1241,7 @@ async function loadBudget() {
 
     try {
 
-        const response = await fetch(
+        const response = await fetchWithAuth(
             `${API_URL}/budgets`
         );
 
@@ -1294,3 +1371,62 @@ document.addEventListener(
 
     }
 );
+
+// ===============================
+// AUTHENTICATED USER UI
+// ===============================
+
+function populateUserProfile() {
+    const userName = localStorage.getItem("userName");
+    const userEmail = localStorage.getItem("userEmail");
+    
+    if (userName) {
+        const greetingMsg = document.getElementById("greetingMessage");
+        if (greetingMsg) {
+            greetingMsg.innerHTML = "Good evening, " + userName + " ??";
+        }
+        
+        const initial = userName.charAt(0).toUpperCase();
+        
+        const profileInitials = document.getElementById("profileInitials");
+        if (profileInitials) {
+            profileInitials.textContent = initial;
+        }
+        
+        const profilePageInitials = document.getElementById("profilePageInitials");
+        if (profilePageInitials) {
+            profilePageInitials.textContent = initial;
+        }
+        
+        const profilePageName = document.getElementById("profilePageName");
+        if (profilePageName) {
+            profilePageName.textContent = userName;
+        }
+    }
+    
+    if (userEmail) {
+        const profilePageEmail = document.getElementById("profilePageEmail");
+        if (profilePageEmail) {
+            profilePageEmail.textContent = userEmail;
+        }
+    }
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    populateUserProfile();
+});
+
+// ===============================
+// LOGOUT
+// ===============================
+
+const logoutBtn = document.getElementById("logoutBtn");
+if (logoutBtn) {
+    logoutBtn.addEventListener("click", function(event) {
+        event.preventDefault();
+        localStorage.removeItem("smartExpenseToken");
+        localStorage.removeItem("userName");
+        localStorage.removeItem("userEmail");
+        window.location.href = "login.html";
+    });
+}

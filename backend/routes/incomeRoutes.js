@@ -2,6 +2,10 @@ const express = require("express");
 const router = express.Router();
 
 const { getDatabase } = require("../database/database");
+const authMiddleware = require("../middleware/authMiddleware");
+
+// Apply auth middleware to all income routes
+router.use(authMiddleware);
 
 // ==============================
 // GET ALL INCOME
@@ -10,7 +14,8 @@ router.get("/", async (req, res) => {
     try {
         const db = getDatabase();
         const income = await db.all(
-            "SELECT * FROM income ORDER BY date DESC"
+            "SELECT * FROM income WHERE user_id = ? ORDER BY date DESC",
+            [req.userId]
         );
 
         res.json({
@@ -34,8 +39,8 @@ router.get("/:id", async (req, res) => {
     try {
         const db = getDatabase();
         const income = await db.get(
-            "SELECT * FROM income WHERE id = ?",
-            req.params.id
+            "SELECT * FROM income WHERE id = ? AND user_id = ?",
+            [req.params.id, req.userId]
         );
 
         if (!income) {
@@ -81,13 +86,15 @@ router.post("/", async (req, res) => {
             `
             INSERT INTO income
             (
+                user_id,
                 amount,
                 source,
                 date
             )
-            VALUES (?, ?, ?)
+            VALUES (?, ?, ?, ?)
             `,
             [
+                req.userId,
                 amount,
                 source,
                 date
@@ -129,8 +136,8 @@ router.put("/:id", async (req, res) => {
 
         // Check if income exists
         const existingIncome = await db.get(
-            "SELECT * FROM income WHERE id = ?",
-            id
+            "SELECT * FROM income WHERE id = ? AND user_id = ?",
+            [id, req.userId]
         );
 
         if (!existingIncome) {
@@ -156,13 +163,14 @@ router.put("/:id", async (req, res) => {
                 amount = ?,
                 source = ?,
                 date = ?
-            WHERE id = ?
+            WHERE id = ? AND user_id = ?
             `,
             [
                 amount,
                 source,
                 date,
-                id
+                id,
+                req.userId
             ]
         );
 
@@ -197,8 +205,8 @@ router.delete("/:id", async (req, res) => {
 
         // Check if income exists
         const existingIncome = await db.get(
-            "SELECT * FROM income WHERE id = ?",
-            id
+            "SELECT * FROM income WHERE id = ? AND user_id = ?",
+            [id, req.userId]
         );
 
         if (!existingIncome) {
@@ -208,10 +216,9 @@ router.delete("/:id", async (req, res) => {
             });
         }
 
-        // Delete income
         await db.run(
-            "DELETE FROM income WHERE id = ?",
-            id
+            "DELETE FROM income WHERE id = ? AND user_id = ?",
+            [id, req.userId]
         );
 
         res.json({

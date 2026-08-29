@@ -6,6 +6,11 @@ const {
     getDatabase
 } = require("../database/database");
 
+const authMiddleware = require("../middleware/authMiddleware");
+
+// Apply auth middleware to all expense routes
+router.use(authMiddleware);
+
 
 // ==============================
 // GET ALL EXPENSES
@@ -18,7 +23,8 @@ router.get("/", async (req, res) => {
         const db = getDatabase();
 
         const expenses = await db.all(
-            "SELECT * FROM expenses ORDER BY date DESC, id DESC"
+            "SELECT * FROM expenses WHERE user_id = ? ORDER BY date DESC, id DESC",
+            [req.userId]
         );
 
         res.json({
@@ -59,8 +65,8 @@ router.get("/:id", async (req, res) => {
         const db = getDatabase();
 
         const expense = await db.get(
-            "SELECT * FROM expenses WHERE id = ?",
-            req.params.id
+            "SELECT * FROM expenses WHERE id = ? AND user_id = ?",
+            [req.params.id, req.userId]
         );
 
         if (!expense) {
@@ -143,15 +149,17 @@ router.post("/", async (req, res) => {
             `
             INSERT INTO expenses
             (
+                user_id,
                 amount,
                 category,
                 description,
                 paymentMethod,
                 date
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?)
             `,
             [
+                req.userId,
                 amount,
                 category,
                 description,
@@ -216,8 +224,8 @@ router.put("/:id", async (req, res) => {
 
 
         const existingExpense = await db.get(
-            "SELECT * FROM expenses WHERE id = ?",
-            id
+            "SELECT * FROM expenses WHERE id = ? AND user_id = ?",
+            [id, req.userId]
         );
 
 
@@ -264,7 +272,7 @@ router.put("/:id", async (req, res) => {
                 paymentMethod = ?,
                 date = ?
 
-            WHERE id = ?
+            WHERE id = ? AND user_id = ?
             `,
             [
                 amount,
@@ -272,7 +280,8 @@ router.put("/:id", async (req, res) => {
                 description,
                 paymentMethod || null,
                 date,
-                id
+                id,
+                req.userId
             ]
         );
 
@@ -324,8 +333,8 @@ router.delete("/:id", async (req, res) => {
 
 
         const existingExpense = await db.get(
-            "SELECT * FROM expenses WHERE id = ?",
-            id
+            "SELECT * FROM expenses WHERE id = ? AND user_id = ?",
+            [id, req.userId]
         );
 
 
@@ -343,8 +352,8 @@ router.delete("/:id", async (req, res) => {
 
 
         await db.run(
-            "DELETE FROM expenses WHERE id = ?",
-            id
+            "DELETE FROM expenses WHERE id = ? AND user_id = ?",
+            [id, req.userId]
         );
 
 

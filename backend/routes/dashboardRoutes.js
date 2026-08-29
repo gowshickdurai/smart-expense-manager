@@ -6,6 +6,11 @@ const {
     getDatabase
 } = require("../database/database");
 
+const authMiddleware = require("../middleware/authMiddleware");
+
+// Apply auth middleware
+router.use(authMiddleware);
+
 
 // ==============================
 // GET DASHBOARD SUMMARY
@@ -45,7 +50,8 @@ router.get("/summary", async (req, res) => {
         const incomeResult = await db.get(`
             SELECT COALESCE(SUM(amount), 0) AS totalIncome
             FROM income
-        `);
+            WHERE user_id = ?
+        `, [req.userId]);
 
 
         // ==============================
@@ -55,7 +61,8 @@ router.get("/summary", async (req, res) => {
         const expenseResult = await db.get(`
             SELECT COALESCE(SUM(amount), 0) AS totalExpenses
             FROM expenses
-        `);
+            WHERE user_id = ?
+        `, [req.userId]);
 
 
         // ==============================
@@ -65,13 +72,15 @@ router.get("/summary", async (req, res) => {
         const budgetResult = await db.get(`
             SELECT COALESCE(SUM(amount), 0) AS totalBudget
             FROM budgets
-            WHERE year = ?
+            WHERE user_id = ?
+            AND year = ?
             AND (
                 month = ?
                 OR month = ?
                 OR LOWER(month) = LOWER(?)
             )
         `, [
+            req.userId,
             year,
             String(monthNumber),
             monthTwoDigit,

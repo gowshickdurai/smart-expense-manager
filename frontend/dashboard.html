@@ -44,7 +44,7 @@
     </nav>
 
     <div class="sidebar-bottom">
-        <a href="index.html">
+        <a href="#" id="logoutBtn">
             🚪 <span>Logout</span>
         </a>
     </div>
@@ -59,10 +59,10 @@
             ☰
         </button>
         <div>
-            <h1>Good evening 👋</h1>
+            <h1 id="greetingMessage">Good evening 👋</h1>
             <p>Here's your financial overview.</p>
         </div>
-        <div class="profile-circle">
+        <div class="profile-circle" id="profileInitials">
             G
         </div>
     </header>
@@ -535,11 +535,11 @@
         </div>
 
         <div class="dashboard-card profile-card">
-            <div class="big-profile">
+            <div class="big-profile" id="profilePageInitials">
                 G
             </div>
-            <h2>Gowshick</h2>
-            <p>gowshick@example.com</p>
+            <h2 id="profilePageName">Gowshick</h2>
+            <p id="profilePageEmail">gowshick@example.com</p>
             <button class="btn">
                 Edit Profile
             </button>
