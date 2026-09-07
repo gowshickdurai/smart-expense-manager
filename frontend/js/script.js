@@ -1,5 +1,49 @@
-// Define your backend API URL here
-const API_URL = "http://localhost:5000/api";
+// Environment-aware API URL
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '';
+const API_URL = isLocalhost ? "http://localhost:5000/api" : "https://smart-expense-manager-backend.onrender.com/api";
+
+// ===============================
+// TOAST NOTIFICATIONS
+// ===============================
+function showToast(message, type) {
+    if (!type) {
+        const lowerMsg = String(message).toLowerCase();
+        if (lowerMsg.includes('fail') || lowerMsg.includes('unable') || lowerMsg.includes('error') || lowerMsg.includes('please') || lowerMsg.includes('not match')) {
+            type = 'error';
+        } else {
+            type = 'success';
+        }
+    }
+    
+    const container = document.getElementById('toast-container');
+    if (!container) {
+        // Fallback
+        const oldAlert = window.oldAlert || window.alert;
+        if(oldAlert !== window.alert) return oldAlert(message);
+        return; 
+    }
+    
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    let icon = type === 'success' ? '✓' : '⚠';
+    toast.innerHTML = `<strong style="font-size: 16px;">${icon}</strong> <span>${message}</span>`;
+    
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.classList.add('fade-out');
+        toast.addEventListener('animationend', () => {
+            toast.remove();
+        });
+    }, 3500);
+}
+
+// Override native alert to use showToast globally
+window.oldAlert = window.alert;
+window.alert = function(message) {
+    showToast(message);
+};
 
 // ===============================
 // AUTHENTICATION WRAPPER
@@ -278,23 +322,7 @@ function toggleSidebar() {
 // ===============================
 
 function searchTransactions() {
-    const input = document.getElementById("searchTransaction");
-    const table = document.getElementById("transactionTable");
-
-    if (!input || !table) return;
-
-    const searchValue = input.value.toLowerCase();
-    const rows = table.getElementsByTagName("tbody")[0].getElementsByTagName("tr");
-
-    for (let i = 0; i < rows.length; i++) {
-        const rowText = rows[i].textContent.toLowerCase();
-
-        if (rowText.includes(searchValue)) {
-            rows[i].style.display = "";
-        } else {
-            rows[i].style.display = "none";
-        }
-    }
+    renderExpenses();
 }
 
 // ===============================
@@ -320,7 +348,7 @@ window.addEventListener("DOMContentLoaded", function () {
 function showSection(sectionId, clickedItem) {
     // Get all dashboard sections
     const sections = document.querySelectorAll(
-        "#overview, #transactions, #income, #budget, #reports, #profile"
+        "#overview, #transactions, #income, #budget, #reports, #profile, #settings"
     );
 
     // Hide all sections
@@ -434,37 +462,95 @@ function renderExpenses() {
     
     if (filtered.length === 0) {
         tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center;">No transactions found</td></tr>`;
+    } else {
+        filtered.forEach(expense => {
+            const tr = document.createElement("tr");
+            
+            // Format date correctly if it's like 2026-08-08
+            let displayDate = expense.date;
+            try {
+                const dateObj = new Date(expense.date);
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const month = dateObj.toLocaleString("en-US", { month: "short" });
+                displayDate = `${day} ${month}`;
+            } catch (e) {}
+
+            const escapedDesc = expense.description.replace(/'/g, "\\'");
+            const escapedCategory = expense.category.replace(/'/g, "\\'");
+            const escapedPayment = (expense.paymentMethod || "").replace(/'/g, "\\'");
+
+            tr.innerHTML = `
+                <td>${displayDate}</td>
+                <td>${expense.description}</td>
+                <td>${expense.category}</td>
+                <td>${expense.paymentMethod || '-'}</td>
+                <td class="expense">-${formatCurrency(expense.amount)}</td>
+                <td>
+                    <button class="secondary-btn" style="padding: 4px 8px; font-size: 12px; margin-right: 5px; border-radius: 5px;" onclick="editExpense('${expense.id}', ${expense.amount}, '${escapedCategory}', '${escapedDesc}', '${escapedPayment}', '${expense.date}')">Edit</button>
+                    <button class="secondary-btn" style="padding: 4px 8px; font-size: 12px; border-radius: 5px; color: var(--red); border-color: var(--red);" onclick="deleteExpense('${expense.id}')">Delete</button>
+                </td>
+            `;
+            tableBody.appendChild(tr);
+        });
+    }
+
+    // Update category spending dynamically
+    updateCategorySpending(filtered);
+}
+
+function updateCategorySpending(expenses) {
+    const categoryList = document.getElementById("categorySpendingList");
+    if (!categoryList) return;
+    
+    if (expenses.length === 0) {
+        categoryList.innerHTML = `<div style="text-align:center; color:var(--muted); font-size:14px; margin-top:20px;">No spending data available.</div>`;
         return;
     }
+
+    const categoryTotals = {};
+    let totalSpending = 0;
     
-    filtered.forEach(expense => {
-        const tr = document.createElement("tr");
+    expenses.forEach(exp => {
+        const cat = exp.category || 'Others';
+        const amt = Number(exp.amount) || 0;
+        if (!categoryTotals[cat]) categoryTotals[cat] = 0;
+        categoryTotals[cat] += amt;
+        totalSpending += amt;
+    });
+    
+    const categoryIcons = {
+        'Food': '🍔 Food',
+        'Travel': '🚗 Travel',
+        'Shopping': '🛍️ Shopping',
+        'Education': '📚 Education',
+        'Bills': '📄 Bills',
+        'Entertainment': '🎬 Entertainment',
+        'Healthcare': '💊 Healthcare',
+        'Others': '📦 Others'
+    };
+    
+    // Sort categories by amount
+    const sortedCategories = Object.keys(categoryTotals).sort((a, b) => categoryTotals[b] - categoryTotals[a]);
+    
+    categoryList.innerHTML = "";
+    
+    sortedCategories.forEach(cat => {
+        const amount = categoryTotals[cat];
+        const percentage = totalSpending > 0 ? Math.round((amount / totalSpending) * 100) : 0;
+        const iconLabel = categoryIcons[cat] || cat;
         
-        // Format date correctly if it's like 2026-08-08
-        let displayDate = expense.date;
-        try {
-            const dateObj = new Date(expense.date);
-            const day = String(dateObj.getDate()).padStart(2, '0');
-            const month = dateObj.toLocaleString("en-US", { month: "short" });
-            displayDate = `${day} ${month}`;
-        } catch (e) {}
-
-        const escapedDesc = expense.description.replace(/'/g, "\\'");
-        const escapedCategory = expense.category.replace(/'/g, "\\'");
-        const escapedPayment = (expense.paymentMethod || "").replace(/'/g, "\\'");
-
-        tr.innerHTML = `
-            <td>${displayDate}</td>
-            <td>${expense.description}</td>
-            <td>${expense.category}</td>
-            <td>${expense.paymentMethod || '-'}</td>
-            <td class="expense">-${formatCurrency(expense.amount)}</td>
-            <td>
-                <button class="secondary-btn" style="padding: 4px 8px; font-size: 12px; margin-right: 5px; border-radius: 5px;" onclick="editExpense(${expense.id}, ${expense.amount}, '${escapedCategory}', '${escapedDesc}', '${escapedPayment}', '${expense.date}')">Edit</button>
-                <button class="secondary-btn" style="padding: 4px 8px; font-size: 12px; border-radius: 5px; color: var(--red); border-color: var(--red);" onclick="deleteExpense(${expense.id})">Delete</button>
-            </td>
+        categoryList.innerHTML += `
+            <div class="category-item">
+                <div>
+                    <span>${iconLabel}</span>
+                    <small>${formatCurrency(amount)}</small>
+                </div>
+                <div class="category-progress">
+                    <div style="width:${percentage}%"></div>
+                </div>
+                <strong>${percentage}%</strong>
+            </div>
         `;
-        tableBody.appendChild(tr);
     });
 }
 
@@ -634,8 +720,8 @@ async function loadIncome() {
                 <td>${income.source}</td>
                 <td class="positive">+${formatCurrency(income.amount)}</td>
                 <td>
-                    <button class="secondary-btn" style="padding: 4px 8px; font-size: 12px; margin-right: 5px; border-radius: 5px;" onclick="editIncome(${income.id}, ${income.amount}, '${escapedSource}', '${income.date}')">Edit</button>
-                    <button class="secondary-btn" style="padding: 4px 8px; font-size: 12px; border-radius: 5px; color: var(--red); border-color: var(--red);" onclick="deleteIncome(${income.id})">Delete</button>
+                    <button class="secondary-btn" style="padding: 4px 8px; font-size: 12px; margin-right: 5px; border-radius: 5px;" onclick="editIncome('${income.id}', ${income.amount}, '${escapedSource}', '${income.date}')">Edit</button>
+                    <button class="secondary-btn" style="padding: 4px 8px; font-size: 12px; border-radius: 5px; color: var(--red); border-color: var(--red);" onclick="deleteIncome('${income.id}')">Delete</button>
                 </td>
             `;
             tableBody.appendChild(tr);
@@ -693,14 +779,11 @@ async function loadDashboardSummary() {
 // ==============================
 
 function formatCurrency(amount) {
-    return new Intl.NumberFormat(
-        "en-IN",
-        {
-            style: "currency",
-            currency: "INR",
-            maximumFractionDigits: 0
-        }
-    ).format(amount);
+    const symbol = localStorage.getItem("currencySymbol") || "₹";
+    const formattedAmount = Number(amount).toLocaleString("en-IN", {
+        maximumFractionDigits: 0
+    });
+    return `${symbol} ${formattedAmount}`;
 }
 
 // ==============================
@@ -742,29 +825,40 @@ async function loadRecentTransactions() {
             return;
         }
 
+        const iconMap = {
+            "Food": "🍔",
+            "Travel": "✈️",
+            "Shopping": "🛍️",
+            "Education": "📚",
+            "Bills": "🧾",
+            "Entertainment": "🎬",
+            "Healthcare": "🏥",
+            "Others": "📌"
+        };
+
         expenses.forEach(expense => {
             const transaction =
                 document.createElement("div");
 
             transaction.className =
-                "transaction-item";
+                "transaction";
+
+            const icon = iconMap[expense.category] || "💸";
 
             transaction.innerHTML = `
-                <div class="transaction-info">
-                    <div class="transaction-icon">
-                        💰
-                    </div>
-                    <div>
-                        <h4>
-                            ${expense.description}
-                        </h4>
-                        <p>
-                            ${expense.category}
-                            • ${expense.date}
-                        </p>
-                    </div>
+                <div class="transaction-icon">
+                    ${icon}
                 </div>
-                <div class="transaction-amount">
+                <div class="transaction-info">
+                    <strong>
+                        ${expense.description}
+                    </strong>
+                    <small>
+                        ${expense.category}
+                        • ${expense.date}
+                    </small>
+                </div>
+                <div class="amount" style="color: var(--red); font-weight: bold;">
                     -${formatCurrency(expense.amount)}
                 </div>
             `;
@@ -833,12 +927,29 @@ function updateDashboardNumbers(summary) {
 
 
     if (budgetLeftElement) {
+        budgetLeftElement.textContent = formatCurrency(summary.budgetLeft);
+    }
 
-        budgetLeftElement.textContent =
-            formatCurrency(
-                summary.budgetLeft
-            );
+    const currentMonthYear = document.getElementById("currentMonthYear");
+    if (currentMonthYear) {
+        const now = new Date();
+        const monthName = now.toLocaleString("en-US", { month: "long" });
+        currentMonthYear.textContent = `${monthName} ${now.getFullYear()}`;
+        
+        const monthlyBudgetMonthYear = document.getElementById("monthlyBudgetMonthYear");
+        if (monthlyBudgetMonthYear) {
+            monthlyBudgetMonthYear.textContent = `${monthName} ${now.getFullYear()}`;
+        }
+    }
 
+    const reportIncome = document.getElementById("reportIncome");
+    if (reportIncome) {
+        reportIncome.textContent = formatCurrency(summary.totalIncome);
+    }
+
+    const reportExpenses = document.getElementById("reportExpenses");
+    if (reportExpenses) {
+        reportExpenses.textContent = formatCurrency(summary.totalExpenses);
     }
 
 
@@ -891,7 +1002,7 @@ function updateDashboardNumbers(summary) {
 
         budgetSpent.textContent =
             formatCurrency(
-                summary.totalExpenses
+                summary.currentMonthExpenses !== undefined ? summary.currentMonthExpenses : summary.totalExpenses
             );
 
     }
@@ -963,7 +1074,7 @@ function updateDashboardNumbers(summary) {
 
     const pageBudgetSpent = document.getElementById("pageBudgetSpent");
     if (pageBudgetSpent) {
-        pageBudgetSpent.textContent = formatCurrency(summary.totalExpenses);
+        pageBudgetSpent.textContent = formatCurrency(summary.currentMonthExpenses !== undefined ? summary.currentMonthExpenses : summary.totalExpenses);
     }
 
     const pageBudgetRemaining = document.getElementById("pageBudgetRemaining");
@@ -1336,8 +1447,8 @@ async function loadBudget() {
                     ${formatCurrency(budget.amount)}
                 </div>
                 <div class="budget-actions" style="display: flex; gap: 10px;">
-                    <button class="secondary-btn" style="padding: 6px 12px; font-size: 12px; border-radius: 5px;" onclick="editBudget(${budget.id}, '${budget.month}', ${budget.year}, ${budget.amount})">Edit</button>
-                    <button class="secondary-btn" style="padding: 6px 12px; font-size: 12px; border-radius: 5px; color: var(--red); border-color: var(--red);" onclick="deleteBudget(${budget.id})">Delete</button>
+                    <button class="secondary-btn" style="padding: 6px 12px; font-size: 12px; border-radius: 5px;" onclick="editBudget('${budget.id}', '${budget.month}', ${budget.year}, ${budget.amount})">Edit</button>
+                    <button class="secondary-btn" style="padding: 6px 12px; font-size: 12px; border-radius: 5px; color: var(--red); border-color: var(--red);" onclick="deleteBudget('${budget.id}')">Delete</button>
                 </div>
             `;
 
@@ -1376,39 +1487,54 @@ document.addEventListener(
 // AUTHENTICATED USER UI
 // ===============================
 
-function populateUserProfile() {
-    const userName = localStorage.getItem("userName");
-    const userEmail = localStorage.getItem("userEmail");
-    
-    if (userName) {
-        const greetingMsg = document.getElementById("greetingMessage");
-        if (greetingMsg) {
-            greetingMsg.innerHTML = "Good evening, " + userName + " ??";
+async function populateUserProfile() {
+    try {
+        const response = await fetchWithAuth(`${API_URL}/profile`);
+        const data = await response.json();
+
+        if (data.success && data.user) {
+            const userName = data.user.name;
+            const userEmail = data.user.email;
+            
+            // Also update localStorage so it's fresh
+            localStorage.setItem("userName", userName);
+            localStorage.setItem("userEmail", userEmail);
+            
+            const greetingMsg = document.getElementById("greetingMessage");
+            if (greetingMsg) {
+                // Determine time of day for greeting
+                const hour = new Date().getHours();
+                let timeOfDay = "evening";
+                if (hour < 12) timeOfDay = "morning";
+                else if (hour < 17) timeOfDay = "afternoon";
+                
+                greetingMsg.innerHTML = `Good ${timeOfDay}, ${userName} 👋`;
+            }
+            
+            const initial = userName.charAt(0).toUpperCase();
+            
+            const profileInitials = document.getElementById("profileInitials");
+            if (profileInitials) {
+                profileInitials.textContent = initial;
+            }
+            
+            const profilePageInitials = document.getElementById("profilePageInitials");
+            if (profilePageInitials) {
+                profilePageInitials.textContent = initial;
+            }
+            
+            const profilePageName = document.getElementById("profilePageName");
+            if (profilePageName) {
+                profilePageName.textContent = userName;
+            }
+            
+            const profilePageEmail = document.getElementById("profilePageEmail");
+            if (profilePageEmail) {
+                profilePageEmail.textContent = userEmail;
+            }
         }
-        
-        const initial = userName.charAt(0).toUpperCase();
-        
-        const profileInitials = document.getElementById("profileInitials");
-        if (profileInitials) {
-            profileInitials.textContent = initial;
-        }
-        
-        const profilePageInitials = document.getElementById("profilePageInitials");
-        if (profilePageInitials) {
-            profilePageInitials.textContent = initial;
-        }
-        
-        const profilePageName = document.getElementById("profilePageName");
-        if (profilePageName) {
-            profilePageName.textContent = userName;
-        }
-    }
-    
-    if (userEmail) {
-        const profilePageEmail = document.getElementById("profilePageEmail");
-        if (profilePageEmail) {
-            profilePageEmail.textContent = userEmail;
-        }
+    } catch (error) {
+        console.error("Unable to load profile:", error);
     }
 }
 
@@ -1430,3 +1556,102 @@ if (logoutBtn) {
         window.location.href = "login.html";
     });
 }
+
+// ===============================
+// SETTINGS / CURRENCY
+// ===============================
+function updateCurrency() {
+    const selector = document.getElementById("currencySelector");
+    if (selector) {
+        localStorage.setItem("currencySymbol", selector.value);
+        if (typeof loadDashboardData === "function") loadDashboardData();
+        if (typeof loadExpense === "function") loadExpense();
+        if (typeof loadIncome === "function") loadIncome();
+        if (typeof loadBudget === "function") loadBudget();
+    }
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    const savedCurrency = localStorage.getItem("currencySymbol");
+    if (savedCurrency) {
+        const selector = document.getElementById("currencySelector");
+        if (selector) {
+            selector.value = savedCurrency;
+        }
+    }
+});
+
+// ===============================
+// PROFILE MODAL
+// ===============================
+function openProfileModal() {
+    const modal = document.getElementById("profileModal");
+    const nameInput = document.getElementById("profileEditName");
+    
+    if (nameInput) {
+        nameInput.value = localStorage.getItem("userName") || "";
+    }
+    
+    if (modal) {
+        modal.classList.add("show");
+    }
+}
+
+function closeProfileModal() {
+    const modal = document.getElementById("profileModal");
+    if (modal) {
+        modal.classList.remove("show");
+    }
+}
+
+const profileForm = document.getElementById("profileForm");
+if (profileForm) {
+    profileForm.addEventListener("submit", async function(e) {
+        e.preventDefault();
+        const name = document.getElementById("profileEditName").value;
+        
+        if (!name) return alert("Please provide a name.");
+        
+        try {
+            const response = await fetchWithAuth(`${API_URL}/profile`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name })
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                alert("Profile updated successfully!");
+                closeProfileModal();
+                populateUserProfile(); // Refresh the UI globally
+            } else {
+                alert(data.message || "Failed to update profile");
+            }
+        } catch (error) {
+            console.error("Profile update error:", error);
+            alert("Unable to connect to the backend.");
+        }
+    });
+}
+
+// ==============================
+// THEME TOGGLE
+// ==============================
+
+function updateTheme() {
+    const selector = document.getElementById("themeSelector");
+    if (selector) {
+        const theme = selector.value;
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('theme', theme);
+    }
+}
+
+// Set initial theme selection on load
+window.addEventListener('DOMContentLoaded', () => {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    const selector = document.getElementById("themeSelector");
+    if (selector) {
+        selector.value = savedTheme;
+    }
+});

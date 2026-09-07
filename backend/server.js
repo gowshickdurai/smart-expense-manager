@@ -1,3 +1,5 @@
+const dns = require('dns');
+dns.setServers(['8.8.8.8']);
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -15,7 +17,7 @@ const {
 
 const app = express();
 
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
 
 // ==============================
@@ -60,6 +62,11 @@ app.use("/api/profile", profileRoutes);
 // ==============================
 // START SERVER
 // ==============================
+
+if (!process.env.JWT_SECRET) {
+    console.error("FATAL ERROR: JWT_SECRET is not defined in the environment variables.");
+    process.exit(1);
+}
 
 async function startServer() {
 

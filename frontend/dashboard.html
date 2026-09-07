@@ -6,9 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - SmartExpense</title>
     <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        if (!localStorage.getItem("smartExpenseToken")) {
+            window.location.href = "login.html";
+        }
+    </script>
 </head>
 
 <body class="dashboard-body">
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container"></div>
 
 <!-- Sidebar -->
 <aside class="sidebar" id="sidebar">
@@ -37,9 +49,6 @@
         </a>
         <a href="#" onclick="return showSection('settings', this)">
             ⚙️ <span>Settings</span>
-        </a>
-        <a href="#" onclick="return showSection('help', this)">
-            ❓ <span>Help & Support</span>
         </a>
     </nav>
 
@@ -72,7 +81,7 @@
         <div class="dashboard-title">
             <div>
                 <h2>Overview</h2>
-                <p>August 2026</p>
+                <p id="currentMonthYear">August 2026</p>
             </div>
             <button class="btn" onclick="openExpenseModal()">
                 + Add Expense
@@ -151,7 +160,7 @@
                 <div class="card-heading">
                     <div>
                         <h3>Monthly Budget</h3>
-                        <p>August 2026</p>
+                        <p id="monthlyBudgetMonthYear">August 2026</p>
                     </div>
                     <span id="monthlyBudgetTotal">
                         ₹0
@@ -192,49 +201,9 @@
                 </div>
             </div>
 
-            <div class="category-list">
-                <div class="category-item">
-                    <div>
-                        <span>🍔 Food</span>
-                        <small>₹6,200</small>
-                    </div>
-                    <div class="category-progress">
-                        <div style="width:35%"></div>
-                    </div>
-                    <strong>35%</strong>
-                </div>
-
-                <div class="category-item">
-                    <div>
-                        <span>🛍️ Shopping</span>
-                        <small>₹4,000</small>
-                    </div>
-                    <div class="category-progress">
-                        <div style="width:23%"></div>
-                    </div>
-                    <strong>23%</strong>
-                </div>
-
-                <div class="category-item">
-                    <div>
-                        <span>🚗 Travel</span>
-                        <small>₹2,800</small>
-                    </div>
-                    <div class="category-progress">
-                        <div style="width:16%"></div>
-                    </div>
-                    <strong>16%</strong>
-                </div>
-
-                <div class="category-item">
-                    <div>
-                        <span>📚 Education</span>
-                        <small>₹2,500</small>
-                    </div>
-                    <div class="category-progress">
-                        <div style="width:14%"></div>
-                    </div>
-                    <strong>14%</strong>
+            <div class="category-list" id="categorySpendingList">
+                <div style="text-align:center; color:var(--muted); font-size:14px; margin-top:20px;">
+                    Loading category data...
                 </div>
             </div>
         </div>
@@ -499,27 +468,17 @@
         <div class="report-grid">
             <div class="dashboard-card report-card">
                 <h3>Monthly Income</h3>
-                <h2>₹30,000</h2>
-                <div class="fake-chart income-chart">
-                    <span style="height:50%"></span>
-                    <span style="height:70%"></span>
-                    <span style="height:60%"></span>
-                    <span style="height:85%"></span>
-                    <span style="height:75%"></span>
-                    <span style="height:100%"></span>
+                <h2 id="reportIncome">₹0</h2>
+                <div class="report-empty-state" style="margin-top: 20px; color: var(--muted); font-size: 13px;">
+                    Based on your records for this month.
                 </div>
             </div>
 
             <div class="dashboard-card report-card">
                 <h3>Monthly Expenses</h3>
-                <h2>₹18,500</h2>
-                <div class="fake-chart expense-chart">
-                    <span style="height:40%"></span>
-                    <span style="height:65%"></span>
-                    <span style="height:55%"></span>
-                    <span style="height:80%"></span>
-                    <span style="height:70%"></span>
-                    <span style="height:90%"></span>
+                <h2 id="reportExpenses">₹0</h2>
+                <div class="report-empty-state" style="margin-top: 20px; color: var(--muted); font-size: 13px;">
+                    Based on your records for this month.
                 </div>
             </div>
         </div>
@@ -540,8 +499,44 @@
             </div>
             <h2 id="profilePageName">Gowshick</h2>
             <p id="profilePageEmail">gowshick@example.com</p>
-            <button class="btn">
+            <button class="btn" onclick="openProfileModal()">
                 Edit Profile
+            </button>
+        </div>
+    </section>
+
+    <!-- Settings -->
+    <section id="settings" class="dashboard-section" style="display: none;">
+        <div class="dashboard-title">
+            <div>
+                <h2>Settings</h2>
+                <p>Manage application preferences.</p>
+            </div>
+        </div>
+
+        <div class="dashboard-card">
+            <h3>Currency Display</h3>
+            <p style="color: var(--muted); font-size: 13px; margin: 10px 0 15px;">Choose the currency symbol for your dashboard.</p>
+            
+            <select id="currencySelector" class="form-control" style="padding: 10px; width: 100%; max-width: 300px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 25px; background: var(--white); color: var(--text);" onchange="updateCurrency()">
+                <option value="₹">₹ (INR)</option>
+                <option value="$">$ (USD)</option>
+                <option value="€">€ (EUR)</option>
+                <option value="£">£ (GBP)</option>
+            </select>
+
+            <h3>Appearance</h3>
+            <p style="color: var(--muted); font-size: 13px; margin: 10px 0 15px;">Choose your preferred theme.</p>
+            
+            <select id="themeSelector" class="form-control" style="padding: 10px; width: 100%; max-width: 300px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 25px; background: var(--white); color: var(--text);" onchange="updateTheme()">
+                <option value="light">☀️ Light Mode</option>
+                <option value="dark">🌙 Dark Mode</option>
+            </select>
+
+            <h3>Data Management</h3>
+            <p style="color: var(--muted); font-size: 13px; margin: 10px 0 15px;">Clear your local session data (Logout).</p>
+            <button class="btn" style="background: var(--red);" onclick="document.getElementById('logoutBtn').click()">
+                Logout
             </button>
         </div>
     </section>
@@ -620,6 +615,30 @@
 
             <button type="submit" class="btn full-btn" id="expenseSubmitBtn">
                 Add Expense
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Profile Modal -->
+<div class="modal" id="profileModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div>
+                <h2>Edit Profile</h2>
+                <p>Update your name.</p>
+            </div>
+            <button onclick="closeProfileModal()">
+                ×
+            </button>
+        </div>
+
+        <form id="profileForm">
+            <label>Name</label>
+            <input type="text" id="profileEditName" placeholder="Enter your name" required>
+
+            <button type="submit" class="btn full-btn" style="margin-top: 15px;">
+                Save Changes
             </button>
         </form>
     </div>

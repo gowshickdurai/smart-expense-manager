@@ -1,195 +1,119 @@
 const express = require("express");
-
 const router = express.Router();
 
-const {
-    getDatabase
-} = require("../database/database");
-
+const Budget = require("../models/Budget");
 const authMiddleware = require("../middleware/authMiddleware");
 
 // Apply auth middleware to all budget routes
 router.use(authMiddleware);
 
-
 // ==============================
 // GET ALL BUDGETS
 // ==============================
-
 router.get("/", async (req, res) => {
-
     try {
-
-        const db = getDatabase();
-
-        const budgets = await db.all(
-            "SELECT * FROM budgets WHERE user_id = ? ORDER BY year DESC, id DESC",
-            [req.userId]
-        );
+        const budgets = await Budget.find({ userId: req.userId }).sort({ year: -1, _id: -1 });
 
         res.json({
             success: true,
             count: budgets.length,
-            budgets: budgets
+            budgets: budgets.map(b => ({
+                id: b._id,
+                month: b.month,
+                year: b.year,
+                amount: b.amount
+            }))
         });
-
     } catch (error) {
-
         console.error(error);
-
         res.status(500).json({
             success: false,
             message: "Unable to get budgets"
         });
-
     }
-
 });
-
 
 // ==============================
 // GET ONE BUDGET
 // ==============================
-
 router.get("/:id", async (req, res) => {
-
     try {
-
-        const db = getDatabase();
-
-        const budget = await db.get(
-            "SELECT * FROM budgets WHERE id = ? AND user_id = ?",
-            [req.params.id, req.userId]
-        );
+        const budget = await Budget.findOne({ _id: req.params.id, userId: req.userId });
 
         if (!budget) {
-
             return res.status(404).json({
                 success: false,
                 message: "Budget not found"
             });
-
         }
 
         res.json({
             success: true,
-            budget: budget
+            budget: {
+                id: budget._id,
+                month: budget.month,
+                year: budget.year,
+                amount: budget.amount
+            }
         });
-
     } catch (error) {
-
         console.error(error);
-
         res.status(500).json({
             success: false,
             message: "Unable to get budget"
         });
-
     }
-
 });
-
 
 // ==============================
 // ADD BUDGET
 // ==============================
-
 router.post("/", async (req, res) => {
-
     try {
-
         const {
             month,
             year,
             amount
         } = req.body;
 
-        if (
-            !month ||
-            !year ||
-            amount === undefined ||
-            amount <= 0 ||
-            year < 2000
-        ) {
-
+        if (!month || !year || amount === undefined || amount <= 0 || year < 2000) {
             return res.status(400).json({
-
                 success: false,
-
-                message:
-                    "Month, valid year (> 2000) and amount (> 0) are required"
-
+                message: "Month, valid year (> 2000) and amount (> 0) are required"
             });
-
         }
 
-        const db = getDatabase();
-
-        const result = await db.run(
-            `
-            INSERT INTO budgets
-            (
-                user_id,
-                month,
-                year,
-                amount
-            )
-            VALUES (?, ?, ?, ?)
-            `,
-            [
-                req.userId,
-                month,
-                year,
-                amount
-            ]
-        );
+        const newBudget = await Budget.create({
+            userId: req.userId,
+            month,
+            year,
+            amount
+        });
 
         res.status(201).json({
-
             success: true,
-
-            message:
-                "Budget added successfully",
-
+            message: "Budget added successfully",
             budget: {
-
-                id: result.lastID,
-
-                month,
-
-                year,
-
-                amount
-
+                id: newBudget._id,
+                month: newBudget.month,
+                year: newBudget.year,
+                amount: newBudget.amount
             }
-
         });
-
     } catch (error) {
-
         console.error(error);
-
         res.status(500).json({
-
             success: false,
-
-            message:
-                "Unable to add budget"
-
+            message: "Unable to add budget"
         });
-
     }
-
 });
-
 
 // ==============================
 // UPDATE BUDGET
 // ==============================
 router.put("/:id", async (req, res) => {
-
     try {
-
         const {
             month,
             year,
@@ -198,161 +122,72 @@ router.put("/:id", async (req, res) => {
 
         const id = req.params.id;
 
-        const db = getDatabase();
-
-        // Check if budget exists
-
-        const existingBudget = await db.get(
-            "SELECT * FROM budgets WHERE id = ? AND user_id = ?",
-            [id, req.userId]
-        );
-
-        if (!existingBudget) {
-
-            return res.status(404).json({
-
-                success: false,
-
-                message: "Budget not found"
-
-            });
-
-        }
-
-        // Validate input
-
-        if (
-            !month ||
-            !year ||
-            amount === undefined ||
-            amount <= 0 ||
-            year < 2000
-        ) {
-
+        if (!month || !year || amount === undefined || amount <= 0 || year < 2000) {
             return res.status(400).json({
-
                 success: false,
-
                 message: "Month, valid year (> 2000) and amount (> 0) are required"
-
             });
-
         }
 
-        // Update budget
-
-        await db.run(
-            `
-            UPDATE budgets
-
-            SET
-                month = ?,
-                year = ?,
-                amount = ?
-
-            WHERE id = ? AND user_id = ?
-            `,
-            [
-                month,
-                year,
-                amount,
-                id,
-                req.userId
-            ]
+        const updatedBudget = await Budget.findOneAndUpdate(
+            { _id: id, userId: req.userId },
+            { month, year, amount },
+            { new: true }
         );
 
-        // Get updated budget
-
-        const updatedBudget = await db.get(
-            "SELECT * FROM budgets WHERE id = ?",
-            id
-        );
+        if (!updatedBudget) {
+            return res.status(404).json({
+                success: false,
+                message: "Budget not found"
+            });
+        }
 
         res.json({
-
             success: true,
-
             message: "Budget updated successfully",
-
-            budget: updatedBudget
-
+            budget: {
+                id: updatedBudget._id,
+                month: updatedBudget.month,
+                year: updatedBudget.year,
+                amount: updatedBudget.amount
+            }
         });
-
     } catch (error) {
-
         console.error(error);
-
         res.status(500).json({
-
             success: false,
-
             message: "Unable to update budget"
-
         });
-
     }
-
 });
 
 // ==============================
 // DELETE BUDGET
 // ==============================
 router.delete("/:id", async (req, res) => {
-
     try {
-
         const id = req.params.id;
 
-        const db = getDatabase();
+        const deletedBudget = await Budget.findOneAndDelete({ _id: id, userId: req.userId });
 
-        // Check if budget exists
-
-        const existingBudget = await db.get(
-            "SELECT * FROM budgets WHERE id = ? AND user_id = ?",
-            [id, req.userId]
-        );
-
-        if (!existingBudget) {
-
+        if (!deletedBudget) {
             return res.status(404).json({
-
                 success: false,
-
                 message: "Budget not found"
-
             });
-
         }
 
-        // Delete budget
-
-        await db.run(
-            "DELETE FROM budgets WHERE id = ? AND user_id = ?",
-            [id, req.userId]
-        );
-
         res.json({
-
             success: true,
-
             message: "Budget deleted successfully"
-
         });
-
     } catch (error) {
-
         console.error(error);
-
         res.status(500).json({
-
             success: false,
-
             message: "Unable to delete budget"
-
         });
-
     }
-
 });
 
 module.exports = router;

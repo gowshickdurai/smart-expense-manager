@@ -1,195 +1,123 @@
 const express = require("express");
-
 const router = express.Router();
+const mongoose = require("mongoose");
 
-const {
-    getDatabase
-} = require("../database/database");
-
+const Income = require("../models/Income");
+const Expense = require("../models/Expense");
+const Budget = require("../models/Budget");
 const authMiddleware = require("../middleware/authMiddleware");
 
 // Apply auth middleware
 router.use(authMiddleware);
 
-
 // ==============================
 // GET DASHBOARD SUMMARY
 // ==============================
-
 router.get("/summary", async (req, res) => {
-
     try {
-
-        const db = getDatabase();
-
         // ==============================
         // CURRENT MONTH / YEAR
         // ==============================
-
         const now = new Date();
+        const monthNumber = now.getMonth() + 1;
+        const monthTwoDigit = String(monthNumber).padStart(2, "0");
+        const monthName = now.toLocaleString("en-US", { month: "long" });
+        const year = now.getFullYear();
 
-        const monthNumber =
-            now.getMonth() + 1;
-
-        const monthTwoDigit =
-            String(monthNumber).padStart(2, "0");
-
-        const monthName =
-            now.toLocaleString("en-US", {
-                month: "long"
-            });
-
-        const year =
-            now.getFullYear();
-
+        const firstDayOfMonth = new Date(year, monthNumber - 1, 1);
+        const lastDayOfMonth = new Date(year, monthNumber, 0, 23, 59, 59, 999);
 
         // ==============================
         // TOTAL INCOME
         // ==============================
+        const userIdObj = new mongoose.Types.ObjectId(req.userId);
 
-        const incomeResult = await db.get(`
-            SELECT COALESCE(SUM(amount), 0) AS totalIncome
-            FROM income
-            WHERE user_id = ?
-        `, [req.userId]);
-
+        const incomeResult = await Income.aggregate([
+            { $match: { userId: userIdObj } },
+            { $group: { _id: null, totalIncome: { $sum: "$amount" } } }
+        ]);
+        const totalIncome = incomeResult.length > 0 ? incomeResult[0].totalIncome : 0;
 
         // ==============================
         // TOTAL EXPENSES
         // ==============================
-
-        const expenseResult = await db.get(`
-            SELECT COALESCE(SUM(amount), 0) AS totalExpenses
-            FROM expenses
-            WHERE user_id = ?
-        `, [req.userId]);
-
+        const expenseResult = await Expense.aggregate([
+            { $match: { userId: userIdObj } },
+            { $group: { _id: null, totalExpenses: { $sum: "$amount" } } }
+        ]);
+        const totalExpenses = expenseResult.length > 0 ? expenseResult[0].totalExpenses : 0;
 
         // ==============================
         // CURRENT MONTH BUDGET
         // ==============================
-
-        const budgetResult = await db.get(`
-            SELECT COALESCE(SUM(amount), 0) AS totalBudget
-            FROM budgets
-            WHERE user_id = ?
-            AND year = ?
-            AND (
-                month = ?
-                OR month = ?
-                OR LOWER(month) = LOWER(?)
-            )
-        `, [
-            req.userId,
-            year,
-            String(monthNumber),
-            monthTwoDigit,
-            monthName
+        const budgetResult = await Budget.aggregate([
+            { 
+                $match: { 
+                    userId: userIdObj,
+                    year: year,
+                    month: { $in: [String(monthNumber), monthTwoDigit, monthName, monthName.toLowerCase()] }
+                } 
+            },
+            { $group: { _id: null, totalBudget: { $sum: "$amount" } } }
         ]);
-
+        const totalBudget = budgetResult.length > 0 ? budgetResult[0].totalBudget : 0;
 
         // ==============================
-        // CONVERT TO NUMBERS
+        // CURRENT MONTH EXPENSES
         // ==============================
-
-        const totalIncome =
-            Number(incomeResult.totalIncome) || 0;
-
-        const totalExpenses =
-            Number(expenseResult.totalExpenses) || 0;
-
-        const totalBudget =
-            Number(budgetResult.totalBudget) || 0;
-
+        const currentMonthExpenseResult = await Expense.aggregate([
+            { 
+                $match: { 
+                    userId: userIdObj,
+                    date: { $gte: firstDayOfMonth, $lte: lastDayOfMonth }
+                } 
+            },
+            { $group: { _id: null, currentMonthExpenses: { $sum: "$amount" } } }
+        ]);
+        const currentMonthExpenses = currentMonthExpenseResult.length > 0 ? currentMonthExpenseResult[0].currentMonthExpenses : 0;
 
         // ==============================
         // BALANCE
         // ==============================
-
-        const balance =
-            totalIncome - totalExpenses;
-
+        const balance = totalIncome - totalExpenses;
 
         // ==============================
         // BUDGET LEFT
         // ==============================
-
-        const budgetLeft =
-            Math.max(
-                totalBudget - totalExpenses,
-                0
-            );
-
+        const budgetLeft = Math.max(totalBudget - currentMonthExpenses, 0);
 
         // ==============================
         // BUDGET USED %
         // ==============================
-
         let budgetUsedPercentage = 0;
-
         if (totalBudget > 0) {
-
-            budgetUsedPercentage =
-                Math.round(
-                    (totalExpenses / totalBudget) * 100
-                );
+            budgetUsedPercentage = Number(((currentMonthExpenses / totalBudget) * 100).toFixed(1));
             budgetUsedPercentage = Math.min(budgetUsedPercentage, 100);
-
         }
-
 
         // ==============================
         // RESPONSE
         // ==============================
-
         res.json({
-
             success: true,
-
             summary: {
-
-                totalIncome:
-                    totalIncome,
-
-                totalExpenses:
-                    totalExpenses,
-
-                balance:
-                    balance,
-
-                totalBudget:
-                    totalBudget,
-
-                budgetLeft:
-                    budgetLeft,
-
-                budgetUsedPercentage:
-                    budgetUsedPercentage
-
+                totalIncome,
+                totalExpenses,
+                currentMonthExpenses,
+                balance,
+                totalBudget,
+                budgetLeft,
+                budgetUsedPercentage
             }
-
         });
-
 
     } catch (error) {
-
-        console.error(
-            "Dashboard summary error:",
-            error
-        );
-
+        console.error("Dashboard summary error:", error);
         res.status(500).json({
-
             success: false,
-
-            message:
-                "Unable to load dashboard summary"
-
+            message: "Unable to load dashboard summary"
         });
-
     }
-
 });
-
 
 module.exports = router;

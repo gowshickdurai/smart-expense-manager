@@ -1,5 +1,5 @@
 const express = require("express");
-const { getDatabase } = require("../database/database");
+const User = require("../models/User");
 const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
@@ -12,9 +12,7 @@ router.use(authMiddleware);
 // ==============================
 router.get("/", async (req, res) => {
     try {
-        const db = getDatabase();
-        
-        const user = await db.get("SELECT id, name, email, created_at FROM users WHERE id = ?", [req.userId]);
+        const user = await User.findById(req.userId).select('-password');
         
         if (!user) {
             return res.status(404).json({
@@ -25,7 +23,12 @@ router.get("/", async (req, res) => {
 
         res.json({
             success: true,
-            user: user
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                created_at: user.createdAt
+            }
         });
 
     } catch (error) {
@@ -50,17 +53,22 @@ router.put("/", async (req, res) => {
                 message: "Name is required"
             });
         }
-
-        const db = getDatabase();
         
-        await db.run("UPDATE users SET name = ? WHERE id = ?", [name, req.userId]);
-
-        const updatedUser = await db.get("SELECT id, name, email, created_at FROM users WHERE id = ?", [req.userId]);
+        const updatedUser = await User.findByIdAndUpdate(
+            req.userId,
+            { name },
+            { new: true }
+        ).select('-password');
 
         res.json({
             success: true,
             message: "Profile updated successfully",
-            user: updatedUser
+            user: {
+                id: updatedUser._id,
+                name: updatedUser.name,
+                email: updatedUser.email,
+                created_at: updatedUser.createdAt
+            }
         });
 
     } catch (error) {

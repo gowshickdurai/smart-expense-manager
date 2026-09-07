@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { getDatabase } = require("../database/database");
+const Income = require("../models/Income");
 const authMiddleware = require("../middleware/authMiddleware");
 
 // Apply auth middleware to all income routes
@@ -12,16 +12,17 @@ router.use(authMiddleware);
 // ==============================
 router.get("/", async (req, res) => {
     try {
-        const db = getDatabase();
-        const income = await db.all(
-            "SELECT * FROM income WHERE user_id = ? ORDER BY date DESC",
-            [req.userId]
-        );
+        const income = await Income.find({ userId: req.userId }).sort({ date: -1 });
 
         res.json({
             success: true,
             count: income.length,
-            income: income
+            income: income.map(inc => ({
+                id: inc._id,
+                amount: inc.amount,
+                source: inc.source,
+                date: inc.date.toISOString().split('T')[0] // Format date to string for frontend
+            }))
         });
     } catch (error) {
         console.error(error);
@@ -37,11 +38,7 @@ router.get("/", async (req, res) => {
 // ==============================
 router.get("/:id", async (req, res) => {
     try {
-        const db = getDatabase();
-        const income = await db.get(
-            "SELECT * FROM income WHERE id = ? AND user_id = ?",
-            [req.params.id, req.userId]
-        );
+        const income = await Income.findOne({ _id: req.params.id, userId: req.userId });
 
         if (!income) {
             return res.status(404).json({
@@ -52,7 +49,12 @@ router.get("/:id", async (req, res) => {
 
         res.json({
             success: true,
-            income: income
+            income: {
+                id: income._id,
+                amount: income.amount,
+                source: income.source,
+                date: income.date.toISOString().split('T')[0]
+            }
         });
     } catch (error) {
         console.error(error);
@@ -81,35 +83,22 @@ router.post("/", async (req, res) => {
             });
         }
 
-        const db = getDatabase();
-        const result = await db.run(
-            `
-            INSERT INTO income
-            (
-                user_id,
-                amount,
-                source,
-                date
-            )
-            VALUES (?, ?, ?, ?)
-            `,
-            [
-                req.userId,
-                amount,
-                source,
-                date
-            ]
-        );
-
-        const newIncome = await db.get(
-            "SELECT * FROM income WHERE id = ?",
-            result.lastID
-        );
+        const newIncome = await Income.create({
+            userId: req.userId,
+            amount,
+            source,
+            date: new Date(date)
+        });
 
         res.status(201).json({
             success: true,
             message: "Income added successfully",
-            income: newIncome
+            income: {
+                id: newIncome._id,
+                amount: newIncome.amount,
+                source: newIncome.source,
+                date: newIncome.date.toISOString().split('T')[0]
+            }
         });
     } catch (error) {
         console.error(error);
@@ -132,20 +121,6 @@ router.put("/:id", async (req, res) => {
         } = req.body;
         
         const id = req.params.id;
-        const db = getDatabase();
-
-        // Check if income exists
-        const existingIncome = await db.get(
-            "SELECT * FROM income WHERE id = ? AND user_id = ?",
-            [id, req.userId]
-        );
-
-        if (!existingIncome) {
-            return res.status(404).json({
-                success: false,
-                message: "Income not found"
-            });
-        }
 
         // Validate input
         if (!amount || !source || !date) {
@@ -155,35 +130,28 @@ router.put("/:id", async (req, res) => {
             });
         }
 
-        // Update income
-        await db.run(
-            `
-            UPDATE income
-            SET
-                amount = ?,
-                source = ?,
-                date = ?
-            WHERE id = ? AND user_id = ?
-            `,
-            [
-                amount,
-                source,
-                date,
-                id,
-                req.userId
-            ]
+        const updatedIncome = await Income.findOneAndUpdate(
+            { _id: id, userId: req.userId },
+            { amount, source, date: new Date(date) },
+            { new: true }
         );
 
-        // Get updated income
-        const updatedIncome = await db.get(
-            "SELECT * FROM income WHERE id = ?",
-            id
-        );
+        if (!updatedIncome) {
+            return res.status(404).json({
+                success: false,
+                message: "Income not found"
+            });
+        }
 
         res.json({
             success: true,
             message: "Income updated successfully",
-            income: updatedIncome
+            income: {
+                id: updatedIncome._id,
+                amount: updatedIncome.amount,
+                source: updatedIncome.source,
+                date: updatedIncome.date.toISOString().split('T')[0]
+            }
         });
 
     } catch (error) {
@@ -201,25 +169,15 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
     try {
         const id = req.params.id;
-        const db = getDatabase();
 
-        // Check if income exists
-        const existingIncome = await db.get(
-            "SELECT * FROM income WHERE id = ? AND user_id = ?",
-            [id, req.userId]
-        );
+        const deletedIncome = await Income.findOneAndDelete({ _id: id, userId: req.userId });
 
-        if (!existingIncome) {
+        if (!deletedIncome) {
             return res.status(404).json({
                 success: false,
                 message: "Income not found"
             });
         }
-
-        await db.run(
-            "DELETE FROM income WHERE id = ? AND user_id = ?",
-            [id, req.userId]
-        );
 
         res.json({
             success: true,
