@@ -1,7 +1,13 @@
 // Environment-aware API URL
-const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '';
-const API_URL = isLocalhost ? "http://localhost:5000/api" : "https://smart-expense-manager-backend.onrender.com/api";
+const isLocalhost =
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === '';
 
+const API_URL = isLocalhost
+    ? "http://localhost:5000/api"
+    : "https://smart-expense-backend-igcx.onrender.com/api";
+    
 // ===============================
 // TOAST NOTIFICATIONS
 // ===============================
