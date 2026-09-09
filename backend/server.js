@@ -24,7 +24,19 @@ const PORT = process.env.PORT || 5000;
 // MIDDLEWARE
 // ==============================
 
-app.use(cors());
+const allowedOrigin = "https://smart-expense-manager-taupe.vercel.app";
+
+app.use(cors({
+    origin: allowedOrigin,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
+app.options("*", cors({
+    origin: allowedOrigin,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+}));
 
 app.use(express.json());
 
