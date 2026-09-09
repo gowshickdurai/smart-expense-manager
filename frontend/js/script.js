@@ -6,7 +6,7 @@ const isLocalhost =
 
 const API_URL = isLocalhost
     ? "http://localhost:5000/api"
-    : "https://smart-expense-backend-igcx.onrender.com/api";
+    : "https://smart-expense-backend-jgcx.onrender.com/api";
     
 // ===============================
 // TOAST NOTIFICATIONS
