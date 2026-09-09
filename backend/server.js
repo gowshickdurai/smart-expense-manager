@@ -1,8 +1,9 @@
-const dns = require('dns');
-dns.setServers(['8.8.8.8']);
+const dns = require("dns");
+dns.setServers(["8.8.8.8"]);
+
 require("dotenv").config();
+
 const express = require("express");
-const cors = require("cors");
 
 const expenseRoutes = require("./routes/expenseRoutes");
 const incomeRoutes = require("./routes/incomeRoutes");
@@ -21,16 +22,37 @@ const PORT = process.env.PORT || 5000;
 
 
 // ==============================
-// MIDDLEWARE
+// CORS + MIDDLEWARE
 // ==============================
 
-const allowedOrigin = "https://smart-expense-manager-taupe.vercel.app";
+const allowedOrigin =
+    "https://smart-expense-manager-taupe.vercel.app";
 
-app.use(cors({
-    origin: allowedOrigin,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
-}));
+app.use((req, res, next) => {
+
+    res.header(
+        "Access-Control-Allow-Origin",
+        allowedOrigin
+    );
+
+    res.header(
+        "Access-Control-Allow-Methods",
+        "GET,POST,PUT,DELETE,PATCH,OPTIONS"
+    );
+
+    res.header(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization"
+    );
+
+    // Handle browser CORS preflight request
+    if (req.method === "OPTIONS") {
+        return res.sendStatus(204);
+    }
+
+    next();
+
+});
 
 app.use(express.json());
 
@@ -52,27 +74,55 @@ app.get("/", (req, res) => {
 // API ROUTES
 // ==============================
 
-app.use("/api/expenses", expenseRoutes);
+app.use(
+    "/api/expenses",
+    expenseRoutes
+);
 
-app.use("/api/income", incomeRoutes);
+app.use(
+    "/api/income",
+    incomeRoutes
+);
 
-app.use("/api/budgets", budgetRoutes);
+app.use(
+    "/api/budgets",
+    budgetRoutes
+);
 
-app.use("/api/dashboard", dashboardRoutes);
+app.use(
+    "/api/dashboard",
+    dashboardRoutes
+);
 
-app.use("/api/auth", authRoutes);
+app.use(
+    "/api/auth",
+    authRoutes
+);
 
-app.use("/api/profile", profileRoutes);
+app.use(
+    "/api/profile",
+    profileRoutes
+);
+
+
+// ==============================
+// CHECK JWT SECRET
+// ==============================
+
+if (!process.env.JWT_SECRET) {
+
+    console.error(
+        "FATAL ERROR: JWT_SECRET is not defined in the environment variables."
+    );
+
+    process.exit(1);
+
+}
 
 
 // ==============================
 // START SERVER
 // ==============================
-
-if (!process.env.JWT_SECRET) {
-    console.error("FATAL ERROR: JWT_SECRET is not defined in the environment variables.");
-    process.exit(1);
-}
 
 async function startServer() {
 
